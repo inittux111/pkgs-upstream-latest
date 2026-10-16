@@ -15,18 +15,18 @@ sudo dnf install copr-cli rpmdevtools rpm-build jq gh
 ## Adding a package
 
 ```bash
-./pkg new <name>                      # if Fedora has it: uses Fedora's spec
-./pkg new <name> github:owner/repo    # otherwise: give the upstream,
-./pkg new <name> gitlab:group/project #   on GitHub or GitLab
-./pkg new <name> https://gitlab.com/group/project   # a URL works too
+./pkg add <name>                      # if Fedora has it: uses Fedora's spec
+./pkg add <name> github:owner/repo    # otherwise: give the upstream,
+./pkg add <name> gitlab:group/project #   on GitHub or GitLab
+./pkg add <name> https://gitlab.com/group/project   # a URL works too
 ./pkg build <name>                    # build it in COPR
 git add packages/<name> && git commit -m "Add <name>" && git push
 ```
 
-For example `./pkg new starship github:starship/starship` or
-`./pkg new btrfs-assistant gitlab:btrfs-assistant/btrfs-assistant`.
-`new` writes a spec for the latest upstream release. Fedora's specs and Rust
-and Go projects usually build as-is; for other projects `new` lists `TODO`s
+For example `./pkg add starship github:starship/starship` or
+`./pkg add btrfs-assistant gitlab:btrfs-assistant/btrfs-assistant`.
+`add` writes a spec for the latest upstream release. Fedora's specs and Rust
+and Go projects usually build as-is; for other projects `add` lists `TODO`s
 to fill in (dependencies and installed files) before you run `build`.
 
 If a build fails, fix `packages/<name>/<name>.spec` and run `build` again.
@@ -40,6 +40,16 @@ If a build fails, fix `packages/<name>/<name>.spec` and run `build` again.
 ./pkg srpm <name>            # only build the SRPM locally, to test a spec
 ./pkg status                 # recent COPR builds
 ```
+
+## Removing a package
+
+```bash
+./pkg remove <name>   # asks first, then deletes it from COPR and packages/
+git commit -m "Remove <name>" && git push
+```
+
+Deleting it from COPR removes all its builds; computers that installed it
+keep it, but get no more updates (uninstall with `sudo dnf remove <name>`).
 
 ## Automatic updates
 

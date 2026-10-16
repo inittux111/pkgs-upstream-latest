@@ -21,17 +21,21 @@ usage() {
     cat <<EOF
 Usage: $me <command> [args]
 
-Add a package:   $me new <package> [<upstream>]
+Add a package:   $me add <package> [<upstream>]
                  $me build <package>
                  git add packages/<package>, commit and push
 
+Remove one:      $me remove <package>
+                 commit and push
+
 Commands:
-  new <pkg> [<upstream>]  create packages/<pkg>/ (from Fedora's spec, else a
+  add <pkg> [<upstream>]  create packages/<pkg>/ (from Fedora's spec, else a
                           new one). <upstream> is where releases come from:
                             github:owner/repo     e.g. github:starship/starship
                             gitlab:group/project  e.g. gitlab:btrfs-assistant/btrfs-assistant
                             or a github.com / gitlab.com URL
   build <pkg>             build the package in COPR (also to rebuild it)
+  remove <pkg>            delete the package from COPR and packages/<pkg>/
   list [<pkg>]            spec version vs latest upstream release (-l)
   update [<pkg>]          bump specs to the latest upstream release (-u)
   bump <pkg> <version>    set a spec to a specific version
@@ -67,7 +71,7 @@ spec_of() {
     local spec="$ROOT_DIR/packages/$1/$1.spec"
     [[ -n "$1" ]] || die "No package given. Packages: $(package_names | xargs)"
     [[ -f "$spec" ]] || die "Unknown package '$1' (no $spec). Packages: $(package_names | xargs)
-Add it with: ${0##*/} new $1 [github:owner/repo | gitlab:group/project]"
+Add it with: ${0##*/} add $1 [github:owner/repo | gitlab:group/project]"
     printf '%s\n' "$spec"
 }
 
@@ -283,7 +287,7 @@ write_template() {
     local forge="${upstream%%:*}" repo="${upstream#*:}" project="${upstream##*/}"
     local tag version prefix api url source meta summary description license files dirs
     local br="" build="# TODO: build the software" install="# TODO: install into %{buildroot}" b
-    local header="# Spec template written by \`pkg new\`: fill in the TODOs."
+    local header="# Spec template written by \`pkg add\`: fill in the TODOs."
     local deps="# TODO: BuildRequires/Requires for the libraries it uses"
     local installed=$'# TODO: list the installed files; a failed build lists them under\n# "Installed (but unpackaged) file(s) found"'
     local tree
@@ -332,7 +336,7 @@ find @DIR@ -maxdepth 1 -type f -perm -u+x ! -name "*.so" \
         br="cargo rust gcc"
         build=$'export RUSTFLAGS="%{build_rustflags}"\ncargo build --release'"$locked"
         install="${install_bins//@DIR@/target/release}"
-        header="# Spec written by \`pkg new\`: cargo downloads the crates at build time
+        header="# Spec written by \`pkg add\`: cargo downloads the crates at build time
 # (COPR_ENABLE_NET=on in copr.conf)."
         deps="" installed="%{_bindir}/*"
     elif grep -qx go.mod <<<"$files"; then
@@ -343,7 +347,7 @@ find @DIR@ -maxdepth 1 -type f -perm -u+x ! -name "*.so" \
         build="mkdir -p _bin
 go build -buildmode=pie -trimpath -ldflags \"-B gobuildid\" -o _bin/ $pkgs"
         install="${install_bins//@DIR@/_bin}"
-        header="# Spec written by \`pkg new\`: go downloads the modules at build time
+        header="# Spec written by \`pkg add\`: go downloads the modules at build time
 # (COPR_ENABLE_NET=on in copr.conf).
 
 # -trimpath leaves no source paths for a debugsource package.
@@ -394,11 +398,11 @@ EOF
     } >"$dir/$name.spec"
 }
 
-cmd_new() {
+cmd_add() {
     need curl jq git rpmspec spectool rpmdev-bumpspec rpmdev-packager
     local name="${1:-}" upstream="" dir tmp spec url have latest src top setup ver rep='%{version}'
     [[ -n "$name" && "$name" != */* ]] \
-        || die "Usage: ${0##*/} new <package> [github:owner/repo | gitlab:group/project | URL]"
+        || die "Usage: ${0##*/} add <package> [github:owner/repo | gitlab:group/project | URL]"
     dir="$ROOT_DIR/packages/$name"
     [[ ! -e "$dir" ]] || die "packages/$name already exists."
     if [[ -n "${2:-}" ]]; then
@@ -419,10 +423,10 @@ cmd_new() {
                        "$(spectool -l -s 0 "$spec" 2>/dev/null | sed 's/^[^:]*: //')"; do
                 upstream="$(upstream_from_url "$url")" && break
             done
-            [[ -n "$upstream" ]] || die "Fedora's $name spec doesn't point to GitHub or GitLab. Pass the upstream: ${0##*/} new $name github:owner/repo"
+            [[ -n "$upstream" ]] || die "Fedora's $name spec doesn't point to GitHub or GitLab. Pass the upstream: ${0##*/} add $name github:owner/repo"
         fi
     else
-        [[ -n "$upstream" ]] || die "$name is not in Fedora. Pass its upstream: ${0##*/} new $name github:owner/repo"
+        [[ -n "$upstream" ]] || die "$name is not in Fedora. Pass its upstream: ${0##*/} add $name github:owner/repo"
         log "Writing a spec template for $upstream"
         write_template "$name" "$upstream" "$tmp/pkg"
     fi
@@ -498,6 +502,26 @@ cmd_build() {
     copr-cli build "$COPR_PROJECT" "$srpm" "$@"
 }
 
+cmd_remove() {
+    need copr-cli git
+    local name="${1:-}" answer=""
+    spec_of "$name" >/dev/null
+    log "This deletes $name from COPR project $COPR_PROJECT, with all its builds"
+    log "(installed copies stay, but get no more updates), and removes packages/$name/."
+    read -rp "Delete $name? [y/N] " answer || true
+    [[ "$answer" == [yY]* ]] || die "Nothing deleted."
+
+    if copr-cli get-package "$COPR_PROJECT" --name "$name" >/dev/null 2>&1; then
+        copr-cli delete-package "$COPR_PROJECT" --name "$name"
+        log "Deleted $name from COPR"
+    else
+        warn "$name is not in COPR project $COPR_PROJECT; only removing packages/$name"
+    fi
+    git -C "$ROOT_DIR" rm -rqf --ignore-unmatch "packages/$name"
+    rm -rf "${ROOT_DIR:?}/packages/$name" "${BUILD_DIR:?}/$name"  # untracked leftovers
+    log "Removed packages/$name. Next: git commit -m \"Remove $name\" && git push"
+}
+
 cmd_status() {
     need copr-cli
     copr-cli list-builds "$COPR_PROJECT" | head -n 20
@@ -508,12 +532,13 @@ main() {
     shift || true
     case "$cmd" in
         setup)   cmd_setup "$@" ;;
-        new|add) cmd_new "$@" ;;
+        add|new) cmd_add "$@" ;;
         list|-l) cmd_list "$@" ;;
         update|--update|-u) cmd_update "$@" ;;
         bump)    cmd_bump "$@" ;;
         srpm)    cmd_srpm "$@" ;;
         build)   cmd_build "$@" ;;
+        remove)  cmd_remove "$@" ;;
         status)  cmd_status "$@" ;;
         -h|--help|help|"") usage ;;
         *) usage >&2; die "Unknown command '$cmd'." ;;
