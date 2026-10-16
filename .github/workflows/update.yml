@@ -6,7 +6,8 @@
 #
 # Needs the repository secret COPR_CONFIG: the contents of your ~/.config/copr
 # (API token from https://copr.fedorainfracloud.org/api/; it expires after
-# 180 days, so renew the secret when it does).
+# 180 days, so renew the secret when it does). From 14 days before it expires,
+# the run fails at the end with a reminder, so you get a mail in time.
 name: Update packages
 
 on:
@@ -39,6 +40,7 @@ jobs:
       # Before bumping anything, so an expired token shows up the day it
       # expires and no bump gets pushed that can't be built.
       - name: Check COPR login
+        id: login
         env:
           COPR_CONFIG: ${{ secrets.COPR_CONFIG }}
         run: |
@@ -53,6 +55,15 @@ jobs:
             exit 1
           fi
           echo "Logged in to COPR as $user"
+
+          # The config from the COPR API page has a "# expiration date: YYYY-MM-DD" line.
+          expires="$(grep -oP '^#\s*expiration date:\s*\K\d{4}-\d{2}-\d{2}' <<<"$COPR_CONFIG" || true)"
+          if [ -n "$expires" ]; then
+            days=$(( ($(date -d "$expires" +%s) - $(date +%s)) / 86400 ))
+            echo "COPR token expires on $expires ($days days)"
+            echo "expires=$expires" >>"$GITHUB_OUTPUT"
+            echo "days_left=$days" >>"$GITHUB_OUTPUT"
+          fi
 
       - name: Bump specs to the latest upstream releases
         id: update
@@ -180,6 +191,12 @@ jobs:
             echo "::error::COPR builds failed:$failed (see the build logs on COPR)"
             exit 1
           fi
+
+      - name: Remind about the expiring COPR token
+        if: ${{ !cancelled() && steps.login.outputs.days_left != '' && fromJSON(steps.login.outputs.days_left) <= 14 }}
+        run: |
+          echo "::error::The COPR token expires on ${{ steps.login.outputs.expires }}; renew it at https://copr.fedorainfracloud.org/api/ and update the COPR_CONFIG secret."
+          exit 1
 
       - name: Report failed upstream lookups
         if: steps.update.outputs.lookup_failed == '1'
