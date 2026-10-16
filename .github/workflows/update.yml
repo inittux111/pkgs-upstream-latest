@@ -35,7 +35,7 @@ jobs:
       - name: Install tools
         run: dnf install -y --setopt=install_weak_deps=False git-core copr-cli rpmdevtools rpm-build jq
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       # Before bumping anything, so an expired token shows up the day it
       # expires and no bump gets pushed that can't be built.
