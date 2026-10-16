@@ -1,0 +1,4 @@
+# Downloaded sources and built SRPMs (./copr.sh srpm)
+/build/
+*.src.rpm
+*.tar.gz

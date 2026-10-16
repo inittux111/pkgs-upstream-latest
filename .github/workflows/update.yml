@@ -1,0 +1,95 @@
+# Once a day: bump the specs in packages/ to the latest upstream releases,
+# commit the bumps to master and build them in COPR.
+#
+# Needs the repository secret COPR_CONFIG: the contents of your ~/.config/copr
+# (API token from https://copr.fedorainfracloud.org/api/; it expires after
+# 180 days, so renew the secret when it does).
+name: Update packages
+
+on:
+  schedule:
+    - cron: "23 4 * * *"  # daily at 04:23 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-packages
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    container: fedora:latest
+    env:
+      # copr.sh uses it for the GitHub API (higher rate limit than anonymous).
+      GITHUB_TOKEN: ${{ github.token }}
+      # Name in the %changelog entries of the bumps.
+      RPM_PACKAGER: Maarten van der Rijst <github@feedmebits.nl>
+    steps:
+      - name: Install tools
+        run: dnf install -y --setopt=install_weak_deps=False git-core copr-cli rpmdevtools rpm-build jq
+
+      - uses: actions/checkout@v5
+
+      # Before bumping anything, so an expired token shows up the day it
+      # expires and no bump gets pushed that can't be built.
+      - name: Check COPR login
+        env:
+          COPR_CONFIG: ${{ secrets.COPR_CONFIG }}
+        run: |
+          if [ -z "$COPR_CONFIG" ]; then
+            echo "::error::Add the contents of ~/.config/copr as the COPR_CONFIG repository secret."
+            exit 1
+          fi
+          mkdir -p ~/.config
+          printf '%s\n' "$COPR_CONFIG" >~/.config/copr
+          if ! user="$(copr-cli whoami)"; then
+            echo "::error::COPR login failed; renew the token at https://copr.fedorainfracloud.org/api/ and update the COPR_CONFIG secret."
+            exit 1
+          fi
+          echo "Logged in to COPR as $user"
+
+      - name: Bump specs to the latest upstream releases
+        id: update
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          lookup_failed=0
+          ./copr.sh update || lookup_failed=1
+
+          packages=""
+          for pkg in $(git diff --name-only -- packages | cut -d/ -f2 | sort -u); do
+            ver="$(rpmspec -q --srpm --qf '%{VERSION}\n' "packages/$pkg/$pkg.spec" | head -n1)"
+            git commit -q -m "$pkg: update to $ver" -- "packages/$pkg"
+            packages="$packages $pkg"
+          done
+          echo "packages=${packages# }" >>"$GITHUB_OUTPUT"
+          echo "lookup_failed=$lookup_failed" >>"$GITHUB_OUTPUT"
+          echo "Updated:${packages:- none}"
+
+      - name: Push the bumps
+        if: steps.update.outputs.packages != ''
+        run: git push
+
+      - name: Build in COPR
+        if: steps.update.outputs.packages != ''
+        env:
+          PACKAGES: ${{ steps.update.outputs.packages }}
+        run: |
+          failed=""
+          for pkg in $PACKAGES; do
+            ./copr.sh build "$pkg" || failed="$failed $pkg"
+          done
+          if [ -n "$failed" ]; then
+            echo "::error::COPR builds failed:$failed (see the build logs on COPR)"
+            exit 1
+          fi
+
+      - name: Report failed upstream lookups
+        if: steps.update.outputs.lookup_failed == '1'
+        run: |
+          echo "::error::Could not look up the latest release of some packages; see the 'Bump specs' step."
+          exit 1
