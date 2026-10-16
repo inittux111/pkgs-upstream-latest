@@ -1,5 +1,7 @@
 # Once a day: bump the specs in packages/ to the latest upstream releases,
-# commit the bumps to master and build them in COPR.
+# commit the bumps to master and build them in COPR. Each bump commit gets a
+# "COPR build" status (the circle/checkmark/cross next to it on GitHub) that
+# shows how its build went and links to it.
 #
 # Needs the repository secret COPR_CONFIG: the contents of your ~/.config/copr
 # (API token from https://copr.fedorainfracloud.org/api/; it expires after
@@ -13,6 +15,7 @@ on:
 
 permissions:
   contents: write
+  statuses: write
 
 concurrency:
   group: update-packages
@@ -64,7 +67,7 @@ jobs:
           for pkg in $(git diff --name-only -- packages | cut -d/ -f2 | sort -u); do
             ver="$(rpmspec -q --srpm --qf '%{VERSION}\n' "packages/$pkg/$pkg.spec" | head -n1)"
             git commit -q -m "$pkg: update to $ver" -- "packages/$pkg"
-            packages="$packages $pkg"
+            packages="$packages $pkg:$(git rev-parse HEAD)"
           done
           echo "packages=${packages# }" >>"$GITHUB_OUTPUT"
           echo "lookup_failed=$lookup_failed" >>"$GITHUB_OUTPUT"
@@ -79,9 +82,33 @@ jobs:
         env:
           PACKAGES: ${{ steps.update.outputs.packages }}
         run: |
+          # Set the "COPR build" status of a bump commit: state, description, link.
+          status() {
+            curl -fsS -o /dev/null -X POST \
+              -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" \
+              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/statuses/$1" \
+              -d "$(jq -n --arg s "$2" --arg d "$3" --arg u "$4" \
+                '{state: $s, description: $d, target_url: $u, context: "COPR build"}')" \
+              || echo "::warning::Could not set the status of $1"
+          }
+          run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          for entry in $PACKAGES; do
+            status "${entry#*:}" pending "Building in COPR" "$run_url"
+          done
+
           failed=""
-          for pkg in $PACKAGES; do
-            ./copr.sh build "$pkg" || failed="$failed $pkg"
+          for entry in $PACKAGES; do
+            pkg="${entry%%:*}" sha="${entry#*:}"
+            if ./copr.sh build "$pkg" 2>&1 | tee build.log; [ "${PIPESTATUS[0]}" = 0 ]; then
+              state=success desc="Built in COPR"
+            else
+              state=failure desc="COPR build failed"
+              failed="$failed $pkg"
+            fi
+            url="$run_url"
+            id="$(grep -oP 'Created builds: \K[0-9]+' build.log | head -n1)"
+            [ -z "$id" ] || url="https://copr.fedorainfracloud.org/coprs/build/$id"
+            status "$sha" "$state" "$desc" "$url"
           done
           if [ -n "$failed" ]; then
             echo "::error::COPR builds failed:$failed (see the build logs on COPR)"
