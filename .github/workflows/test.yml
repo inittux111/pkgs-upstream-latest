@@ -33,9 +33,12 @@ jobs:
       COPR_OWNER: inittux0101
     steps:
       - name: Install tools
-        run: dnf install -y --setopt=install_weak_deps=False git-core rpmdevtools rpm-build jq
+        run: dnf install -y --setopt=install_weak_deps=False git-core rpmdevtools rpm-build jq ShellCheck
 
       - uses: actions/checkout@v5
+
+      - name: ShellCheck pkg
+        run: shellcheck -x pkg
 
       - name: Update every package from version 0
         run: |
