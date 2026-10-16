@@ -1,7 +1,8 @@
 # Once a day: bump the specs in packages/ to the latest upstream releases,
-# commit the bumps to master and build them in COPR. Each bump commit gets a
-# "COPR build" status (the circle/checkmark/cross next to it on GitHub) that
-# shows how its build went and links to it.
+# commit the bumps to master and build them in COPR, and rebuild any package
+# whose latest COPR build is missing, outdated or failed. Each built package's
+# commit gets a "COPR build" status (the circle/checkmark/cross next to it on
+# GitHub) that shows how its build went and links to it.
 #
 # Needs the repository secret COPR_CONFIG: the contents of your ~/.config/copr
 # (API token from https://copr.fedorainfracloud.org/api/; it expires after
@@ -77,12 +78,22 @@ jobs:
         if: steps.update.outputs.packages != ''
         run: git push
 
+      # Builds the bumps, and also rebuilds any package whose latest COPR build
+      # isn't of its spec's version or failed (e.g. a COPR hiccup), so such a
+      # build gets retried the next day. Failures on rawhide (Fedora's
+      # development branch, often broken for reasons outside the package) are
+      # only warnings, as in the test workflow.
       - name: Build in COPR
-        if: steps.update.outputs.packages != ''
         env:
-          PACKAGES: ${{ steps.update.outputs.packages }}
+          BUMPED: ${{ steps.update.outputs.packages }}
         run: |
-          # Set the "COPR build" status of a bump commit: state, description, link.
+          set -o pipefail
+          . ./copr.conf
+          api="https://copr.fedorainfracloud.org/api_3"
+          owner="$(copr-cli whoami)"
+          run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+
+          # Set the "COPR build" status of a commit: state, description, link.
           status() {
             curl -fsS -o /dev/null -X POST \
               -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" \
@@ -91,22 +102,77 @@ jobs:
                 '{state: $s, description: $d, target_url: $u, context: "COPR build"}')" \
               || echo "::warning::Could not set the status of $1"
           }
-          run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-          for entry in $PACKAGES; do
+          # Print the chroots of a COPR build that failed or were canceled.
+          failed_chroots() {
+            curl -fsSL "$api/build-chroot/list?build_id=$1" \
+              | jq -r '.items[] | select(.state == "failed" or .state == "canceled") | .name'
+          }
+          # Succeed if a COPR build has no failures outside rawhide; warn about rawhide.
+          chroots_ok() {
+            local chroots chroot ok=0
+            chroots="$(failed_chroots "$1")" || { echo "::warning::Could not check build $1"; return 1; }
+            for chroot in $chroots; do
+              if [[ "$chroot" == *rawhide* ]]; then
+                echo "::warning::$pkg: failed on $chroot (build $1)"
+              else
+                echo "::error::$pkg: failed on $chroot, see https://copr.fedorainfracloud.org/coprs/build/$1"
+                ok=1
+              fi
+            done
+            return "$ok"
+          }
+
+          # What to build: "package:commit" for the bumps, then the packages whose
+          # latest build isn't OK, with the last commit that changed them.
+          todo="$BUMPED"
+          builds="$(curl -fsSL "$api/package/list?ownername=$owner&projectname=$COPR_PROJECT&with_latest_build=true")"
+          for spec in packages/*/*.spec; do
+            pkg="$(basename "$spec" .spec)"
+            case " $todo " in *" $pkg:"*) continue ;; esac
+            want="$(rpmspec -q --srpm --define 'dist %{nil}' \
+              --qf '%|EPOCH?{%{EPOCH}:}|%{VERSION}-%{RELEASE}\n' "$spec" | head -n1)"
+            build="$(jq -c --arg p "$pkg" '.items[] | select(.name == $p) | .builds.latest // empty' <<<"$builds")"
+            id="$(jq -r '.id // empty' <<<"$build")"
+            have="$(jq -r '.source_package.version // empty' <<<"$build")"
+            state="$(jq -r '.state // empty' <<<"$build")"
+            if [ -z "$id" ]; then
+              why="it was never built"
+            elif [ "$have" != "$want" ]; then
+              why="the latest build ($id) is $have, not $want"
+            elif [ "$state" = failed ] && ! chroots_ok "$id" >/dev/null; then
+              why="the latest build ($id) failed"
+            else
+              continue
+            fi
+            echo "Rebuilding $pkg: $why"
+            todo="$todo $pkg:$(git log -1 --format=%H -- "packages/$pkg")"
+          done
+          todo="${todo# }"
+          if [ -z "$todo" ]; then
+            echo "Nothing to build."
+            exit 0
+          fi
+
+          for entry in $todo; do
             status "${entry#*:}" pending "Building in COPR" "$run_url"
           done
-
           failed=""
-          for entry in $PACKAGES; do
+          for entry in $todo; do
             pkg="${entry%%:*}" sha="${entry#*:}"
-            if ./copr.sh build "$pkg" 2>&1 | tee build.log; [ "${PIPESTATUS[0]}" = 0 ]; then
+            echo "::group::Build $pkg"
+            ./copr.sh build "$pkg" --nowait 2>&1 | tee build.log || true
+            id="$(grep -oP 'Created builds: \K[0-9]+' build.log | head -n1)" || true
+            if [ -n "$id" ]; then
+              copr-cli watch-build "$id" || true
+            fi
+            echo "::endgroup::"
+            if [ -n "$id" ] && chroots_ok "$id"; then
               state=success desc="Built in COPR"
             else
               state=failure desc="COPR build failed"
               failed="$failed $pkg"
             fi
             url="$run_url"
-            id="$(grep -oP 'Created builds: \K[0-9]+' build.log | head -n1)"
             [ -z "$id" ] || url="https://copr.fedorainfracloud.org/coprs/build/$id"
             status "$sha" "$state" "$desc" "$url"
           done
