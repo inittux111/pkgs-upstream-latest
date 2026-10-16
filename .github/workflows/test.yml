@@ -1,0 +1,120 @@
+# Test that updating still works, without pushing or building anything: for
+# every package, set the spec back to version 0, let `pkg update` bump it
+# to the latest upstream release (at least the version in the spec) and build
+# the SRPM, which downloads the sources.
+# On schedule (not on pushes), also check that every package's latest COPR
+# build is of the spec's version and succeeded. A failed run sends you a mail.
+name: Test updates and builds
+
+on:
+  schedule:
+    - cron: "23 7 * * *"  # daily, 3 hours after the update run so its builds are done
+  push:
+    branches: [master]
+    paths:
+      - pkg
+      - copr.conf
+      - "packages/**"
+      - .github/workflows/test.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    container: fedora:latest
+    env:
+      # pkg uses it for the GitHub API (higher rate limit than anonymous).
+      GITHUB_TOKEN: ${{ github.token }}
+      RPM_PACKAGER: pkg test <test@localhost>
+      # COPR user that owns the project in copr.conf.
+      COPR_OWNER: inittux0101
+    steps:
+      - name: Install tools
+        run: dnf install -y --setopt=install_weak_deps=False git-core rpmdevtools rpm-build jq
+
+      - uses: actions/checkout@v5
+
+      - name: Update every package from version 0
+        run: |
+          query() { rpmspec -q --srpm --qf '%{VERSION}\n' "$1" | head -n1; }
+          failed=""
+          for spec in packages/*/*.spec; do
+            pkg="$(basename "$spec" .spec)"
+            echo "::group::$pkg"
+            have="$(query "$spec")"
+            new=""
+            sed -i -E 's/^(Version:[[:space:]]*).*/\10/' "$spec"
+            if ./pkg update "$pkg" \
+              && new="$(query "$spec")" && [ "$new" != 0 ] \
+              && [ "$(printf '%s\n%s\n' "$have" "$new" | sort -V | head -n1)" = "$have" ] \
+              && ./pkg srpm "$pkg"; then
+              result="$pkg: OK (spec $have, update gives $new)"
+            else
+              result="::error::$pkg: update from 0 gave '${new:-nothing}' (spec has $have), or the SRPM failed"
+              failed="$failed $pkg"
+            fi
+            echo "::endgroup::"
+            echo "$result"
+          done
+          if [ -n "$failed" ]; then
+            echo "::error::Updating failed for:$failed"
+            exit 1
+          fi
+
+      # Failures on rawhide (Fedora's development branch, often broken for
+      # reasons outside the package) are only warnings.
+      - name: Check the latest COPR builds
+        if: ${{ !cancelled() && github.event_name != 'push' }}
+        run: |
+          # The container runs as root, but the checkout isn't owned by root.
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git checkout -- packages  # undo the version 0 test
+          . ./copr.conf
+          api="https://copr.fedorainfracloud.org/api_3"
+          builds="$(curl -fsSL "$api/package/list?ownername=$COPR_OWNER&projectname=$COPR_PROJECT&with_latest_build=true")"
+          failed=""
+          for spec in packages/*/*.spec; do
+            pkg="$(basename "$spec" .spec)"
+            want="$(rpmspec -q --srpm --define 'dist %{nil}' \
+              --qf '%|EPOCH?{%{EPOCH}:}|%{VERSION}-%{RELEASE}\n' "$spec" | head -n1)"
+            build="$(jq -c --arg p "$pkg" '.items[] | select(.name == $p) | .builds.latest // empty' <<<"$builds")"
+            if [ -z "$build" ]; then
+              echo "::error::$pkg: never built in COPR; build it with: ./pkg build $pkg"
+              failed="$failed $pkg"
+              continue
+            fi
+            id="$(jq -r .id <<<"$build")"
+            have="$(jq -r '.source_package.version // "?"' <<<"$build")"
+            if [ "$have" != "$want" ]; then
+              echo "::error::$pkg: spec is at $want but the latest COPR build ($id) is $have; build it with: ./pkg build $pkg"
+              failed="$failed $pkg"
+              continue
+            fi
+            ok=1
+            while read -r chroot state; do
+              case "$state" in
+                succeeded|skipped|forked) ;;
+                failed|canceled)
+                  if [[ "$chroot" == *rawhide* ]]; then
+                    echo "::warning::$pkg $have: $state on $chroot (build $id)"
+                  else
+                    echo "::error::$pkg $have: $state on $chroot, see https://copr.fedorainfracloud.org/coprs/build/$id"
+                    ok=0
+                  fi
+                  ;;
+                *) echo "::warning::$pkg $have: still $state on $chroot (build $id)" ;;
+              esac
+            done < <(curl -fsSL "$api/build-chroot/list?build_id=$id" | jq -r '.items[] | "\(.name) \(.state)"')
+            if [ "$ok" = 1 ]; then
+              echo "$pkg $have: OK (build $id)"
+            else
+              failed="$failed $pkg"
+            fi
+          done
+          if [ -n "$failed" ]; then
+            echo "::error::COPR builds not OK for:$failed"
+            exit 1
+          fi

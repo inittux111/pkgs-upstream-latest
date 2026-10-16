@@ -1,0 +1,4 @@
+# Downloaded sources and built SRPMs (./pkg srpm)
+/build/
+*.src.rpm
+*.tar.gz
