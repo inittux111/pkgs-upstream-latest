@@ -282,7 +282,7 @@ write_template() {
     local name="$1" upstream="$2" dir="$3"
     local forge="${upstream%%:*}" repo="${upstream#*:}" project="${upstream##*/}"
     local tag version prefix api url source meta summary description license files dirs
-    local br="" build="# TODO: build the software" install="# TODO: install into %{buildroot}" b f
+    local br="" build="# TODO: build the software" install="# TODO: install into %{buildroot}" b
     local header="# Spec template written by \`copr.sh new\`: fill in the TODOs."
     local deps="# TODO: BuildRequires/Requires for the libraries it uses"
     local installed=$'# TODO: list the installed files; a failed build lists them under\n# "Installed (but unpackaged) file(s) found"'
@@ -382,8 +382,8 @@ EOF
         printf '\n'
         printf '%%description\n%s\n\n\n' "$(fold -s -w 76 <<<"${description:-TODO: description}" | sed 's/ *$//')"
         printf '%%prep\n@AUTOSETUP@\n\n%%build\n%s\n\n%%install\n%s\n\n\n%%files\n' "$build" "$install"
-        for f in $(grep -E '^(LICEN[CS]E|COPYING)' <<<"$files"); do printf '%%license %s\n' "$f"; done
-        for f in $(grep -E '^README' <<<"$files"); do printf '%%doc %s\n' "$f"; done
+        sed -nE 's/^(LICEN[CS]E|COPYING)/%license &/p' <<<"$files"
+        sed -n 's/^README/%doc &/p' <<<"$files"
         cat <<EOF
 $installed
 
