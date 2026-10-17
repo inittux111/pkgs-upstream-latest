@@ -1,0 +1,59 @@
+From c261979245527ae780f83d00d3cffcc117873658 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Petr=20P=C3=ADsa=C5=99?= <ppisar@redhat.com>
+Date: Fri, 26 Nov 2021 14:55:49 +0100
+Subject: [PATCH] Adjust to Autoconf-2.71
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Autoconf-2.71 fixed handling traling white spaces (marked with an
+underscore here):
+
+    AC_CHECK_FUNCS( \
+      strcpy \
+      strdup \
+      strchr \_
+      strlen \_
+      strcat \_
+      strtok \_
+    )
+
+and correctly converted them to this shell code:
+
+    for ac_func in strcpy strdup strchr \ strlen \ strcat \ strtok \
+    do :
+      [...]
+    done
+
+This patch removes the trailing new lines.
+
+<https://bugzilla.redhat.com/show_bug.cgi?id=1999491>
+<https://savannah.gnu.org/support/index.php?110571>
+
+Signed-off-by: Petr Písař <ppisar@redhat.com>
+---
+ configure.ac | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/configure.ac b/configure.ac
+index 668b3c9..0f7c26d 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -174,10 +174,10 @@ AC_FUNC_MALLOC
+ AC_CHECK_FUNCS( \
+   strcpy \
+   strdup \
+-  strchr \ 
+-  strlen \ 
+-  strcat \ 
+-  strtok \ 
++  strchr \
++  strlen \
++  strcat \
++  strtok \
+ )
+ AC_CHECK_FUNCS([getopt_long])
+ 
+-- 
+2.31.1
+

@@ -1,0 +1,11 @@
+[Unit]
+Description=whatsup-pingd
+After=syslog.target network.target
+
+[Service]
+Type=forking
+ExecStart=/usr/sbin/pingd
+
+[Install]
+WantedBy=multi-user.target
+

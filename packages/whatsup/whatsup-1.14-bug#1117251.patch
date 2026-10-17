@@ -1,0 +1,27 @@
+Index: src/libnodeupdown/nodeupdown_backend_ganglia.c
+===================================================================
+--- src/libnodeupdown/nodeupdown_backend_ganglia.c	(revision 967)
++++ src/libnodeupdown/nodeupdown_backend_ganglia.c	(revision 968)
+@@ -180,6 +180,9 @@
+ 
+       /* store as up or down */
+       reported = atol(attr[5]);
++      /* With ganglia 3.2.0, attr[4] is actually TAGS, and we want the
++	 next pair.  */
++      if (!reported) reported = atol(attr[7]);
+       if (abs(localtime - reported) < timeout_len)
+ 	nodeupdown_add_up_node(handle, attr[1]);
+       else
+Index: ChangeLog
+===================================================================
+--- ChangeLog	(revision 967)
++++ ChangeLog	(revision 968)
+@@ -1,3 +1,8 @@
++2012-09-19  Dave Love <d.love@liverpool.ac.uk>
++
++	* src/libnodeupdown/nodeupdown_backend_ganglia.c (_xml_parse_start):
++	Update XML parsing for newer Ganglias.
++	
+ 2012-06-26  Albert Chu  <chu11@llnl.gov>
+ 
+ 	* tagged whatsup-1-14-1
