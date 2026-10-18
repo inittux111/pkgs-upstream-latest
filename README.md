@@ -35,7 +35,8 @@ If a build fails, fix `packages/<name>/<name>.spec` and run `build` again.
 
 ```bash
 ./pkg list                   # spec version vs latest upstream release
-./pkg update [<name>]        # bump specs to the latest upstream release
+./pkg update [<name>]        # bump specs to the latest upstream release,
+                             # commit and push them (--no-push, --no-commit)
 ./pkg bump <name> <version>  # set a spec to a specific version
 ./pkg srpm <name>            # only build the SRPM locally, to test a spec
 ./pkg status                 # recent COPR builds
@@ -54,7 +55,9 @@ keep it, but get no more updates (uninstall with `sudo dnf remove <name>`).
 ## Automatic updates
 
 A GitHub Action (`.github/workflows/update.yml`) runs `update` and `build`
-every day, so pushed packages follow upstream on their own. Another one
+every 6 hours, so pushed packages follow upstream on their own. It also
+builds bumps you committed and pushed with `./pkg update` yourself, and
+rebuilds packages whose latest COPR build failed. Another one
 (`test.yml`) checks daily that updating and the latest COPR builds still
 work. GitHub mails you when either fails.
 

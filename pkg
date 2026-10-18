@@ -37,7 +37,8 @@ Commands:
   build <pkg>             build the package in COPR (also to rebuild it)
   remove <pkg>            delete the package from COPR and packages/<pkg>/
   list [<pkg>]            spec version vs latest upstream release (-l)
-  update [<pkg>]          bump specs to the latest upstream release (-u)
+  update [<pkg>]          bump specs to the latest upstream release, commit
+                          and push them (-u; --no-push, --no-commit)
   bump <pkg> <version>    set a spec to a specific version
   srpm <pkg>              only build the SRPM locally, to test a spec
   status                  recent COPR builds
@@ -216,21 +217,44 @@ cmd_list() {
 }
 
 cmd_update() {
-    need rpmspec curl jq rpmdev-bumpspec
-    local name names have latest updated=0 rc=0
-    names="${1:-$(package_names)}"
+    need rpmspec curl jq rpmdev-bumpspec git
+    local commit=1 push=1 arg name names="" have latest spec dirty updated=0 rc=0
+    for arg in "$@"; do
+        case "$arg" in
+            --no-commit) commit=0 push=0 ;;
+            --no-push)   push=0 ;;
+            -*) die "Unknown option '$arg'." ;;
+            *)  names="$names $arg" ;;
+        esac
+    done
+    names="${names:-$(package_names)}"
     for name in $names; do
-        have="$(spec_version "$(spec_of "$name")")"
+        spec="$(spec_of "$name")"
+        have="$(spec_version "$spec")"
         latest="$(upstream_latest "$name")" || { (( $? == 2 )) || rc=1; continue; }
         if is_newer "$have" "$latest"; then
             log "$name: updating $have -> $latest"
-            cmd_bump "$name" "$latest"
-            updated=$((updated + 1))
+            # Committing packages/<pkg> would also commit edits made by hand.
+            dirty="$(git -C "$ROOT_DIR" status --porcelain -- "packages/$name")"
+            rpmdev-bumpspec -n "$latest" -c "Update to $latest" "$spec"
+            if (( commit )) && [[ -z "$dirty" ]]; then
+                git -C "$ROOT_DIR" commit -q -m "$name: update to $latest" -- "packages/$name"
+                updated=$((updated + 1))
+            elif (( commit )); then
+                warn "$name: packages/$name had uncommitted changes; left the bump uncommitted too"
+            fi
         else
             log "$name: up to date ($have)"
         fi
     done
-    (( updated > 0 )) || log "No spec changes."
+    if (( updated == 0 )); then
+        log "Nothing committed."
+    elif (( push )); then
+        git -C "$ROOT_DIR" push -q || die "Push failed; run 'git pull --rebase && git push'."
+        log "Pushed $updated update(s); the next update run builds them in COPR (or: ${0##*/} build <pkg>)."
+    else
+        log "Committed $updated update(s); not pushed."
+    fi
     return "$rc"
 }
 

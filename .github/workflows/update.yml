@@ -73,13 +73,13 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           lookup_failed=0
-          ./pkg update || lookup_failed=1
+          ./pkg update --no-push || lookup_failed=1
 
+          # pkg commits each bump on its own; the next step pushes them.
           packages=""
-          for pkg in $(git diff --name-only -- packages | cut -d/ -f2 | sort -u); do
-            ver="$(rpmspec -q --srpm --qf '%{VERSION}\n' "packages/$pkg/$pkg.spec" | head -n1)"
-            git commit -q -m "$pkg: update to $ver" -- "packages/$pkg"
-            packages="$packages $pkg:$(git rev-parse HEAD)"
+          for sha in $(git rev-list --reverse "@{u}..HEAD"); do
+            pkg="$(git diff-tree --no-commit-id --name-only -r "$sha" -- packages | cut -d/ -f2 | head -n1)"
+            packages="$packages $pkg:$sha"
           done
           echo "packages=${packages# }" >>"$GITHUB_OUTPUT"
           echo "lookup_failed=$lookup_failed" >>"$GITHUB_OUTPUT"

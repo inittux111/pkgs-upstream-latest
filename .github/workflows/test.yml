@@ -50,7 +50,7 @@ jobs:
             have="$(query "$spec")"
             new=""
             sed -i -E 's/^(Version:[[:space:]]*).*/\10/' "$spec"
-            if ./pkg update "$pkg" \
+            if ./pkg update --no-commit "$pkg" \
               && new="$(query "$spec")" && [ "$new" != 0 ] \
               && [ "$(printf '%s\n%s\n' "$have" "$new" | sort -V | head -n1)" = "$have" ] \
               && ./pkg srpm "$pkg"; then
