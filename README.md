@@ -4,6 +4,17 @@ Build newer upstream releases of packages for Fedora using my [personal COPR rep
 Each package is a spec in `packages/<name>/`; `pkg` adds, updates and
 builds them.
 
+## Installing
+
+[my copr repo](https://copr.fedorainfracloud.org/coprs/inittux0101/pkgs-upstream-latest)
+is the better place to install these packages from, as it also builds them for
+Fedora 43 and newer:
+
+```bash
+sudo dnf copr enable inittux0101/pkgs-upstream-latest
+sudo dnf install <name>
+```
+
 ## Setup
 
 ```bash
@@ -41,6 +52,7 @@ If a build fails, fix `packages/<name>/<name>.spec` and run `build` again.
 ./pkg bump <name> <version>  # set a spec to a specific version
 ./pkg srpm <name>            # only build the SRPM locally, to test a spec
 ./pkg status                 # recent COPR builds
+./pkg --help                 # usage summary of every command
 ```
 
 ## Removing a package
