@@ -35,6 +35,7 @@ Commands:
                             gitlab:group/project  e.g. gitlab:btrfs-assistant/btrfs-assistant
                             or a github.com / gitlab.com URL
   build <pkg>             build the package in COPR (also to rebuild it)
+  build --all             build every package in packages/
   remove <pkg>            delete the package from COPR and packages/<pkg>/
   list [<pkg>]            spec version vs latest upstream release (-l)
   update [<pkg>]          bump specs to the latest upstream release, commit
@@ -521,14 +522,34 @@ cmd_srpm() {
     ls "$out"/*.src.rpm
 }
 
-cmd_build() {
-    need copr-cli
-    local name="${1:-}" srpm
-    shift || true
-    spec_of "$name" >/dev/null
+# build_one <package> [copr-cli args]: build one package in COPR
+build_one() {
+    local name="$1" srpm
+    shift
     srpm="$(cmd_srpm "$name" | tail -n1)"
     log "Submitting $(basename "$srpm") to COPR project $COPR_PROJECT"
     copr-cli build "$COPR_PROJECT" "$srpm" "$@"
+}
+
+cmd_build() {
+    need copr-cli
+    local name="${1:-}" names failed=""
+    if [[ "$name" == --all ]]; then
+        shift
+        names="$(package_names)"
+        [[ -n "$names" ]] || die "No packages in packages/ to build."
+        for name in $names; do
+            log "Building $name"
+            # Subshell re-enables errexit (disabled here by the || context) so a
+            # failed SRPM aborts before copr-cli; one failure doesn't stop the rest.
+            ( set -e; build_one "$name" "$@" ) || failed="$failed $name"
+        done
+        [[ -z "$failed" ]] || die "Build failed for:$failed"
+        return
+    fi
+    shift || true
+    spec_of "$name" >/dev/null
+    build_one "$name" "$@"
 }
 
 cmd_remove() {

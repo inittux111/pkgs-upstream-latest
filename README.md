@@ -34,6 +34,7 @@ If a build fails, fix `packages/<name>/<name>.spec` and run `build` again.
 ## Other commands
 
 ```bash
+./pkg build --all            # build every package in packages/ in COPR
 ./pkg list                   # spec version vs latest upstream release
 ./pkg update [<name>]        # bump specs to the latest upstream release,
                              # commit and push them (--no-push, --no-commit)
