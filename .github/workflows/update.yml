@@ -1,8 +1,9 @@
-# Every 6 hours: bump the specs in packages/ to the latest upstream releases,
-# commit the bumps to master and build them in COPR, and rebuild any package
-# whose latest COPR build is missing, outdated or failed. Each built package's
-# commit gets a "COPR build" status (the circle/checkmark/cross next to it on
-# GitHub) that shows how its build went and links to it.
+# Every 6 hours, and on each push that changes packages/: bump the specs in
+# packages/ to the latest upstream releases, commit the bumps to master and
+# build them in COPR, and rebuild any package whose latest COPR build is
+# missing, outdated or failed. Each built package's commit gets a "COPR build"
+# status (the circle/checkmark/cross next to it on GitHub) that shows how its
+# build went and links to it.
 #
 # Needs the repository secret COPR_CONFIG: the contents of your ~/.config/copr
 # (API token from https://copr.fedorainfracloud.org/api/; it expires after
@@ -14,6 +15,12 @@ on:
   schedule:
     - cron: "23 */6 * * *"  # every 6 hours at :23 UTC (00:23, 06:23, 12:23, 18:23)
   workflow_dispatch:
+  # Builds bumps pushed with "./pkg update" right away instead of on the next
+  # scheduled run. The workflow's own pushes (with GITHUB_TOKEN) don't trigger
+  # it again.
+  push:
+    branches: [master]
+    paths: ["packages/**"]
 
 permissions:
   contents: write

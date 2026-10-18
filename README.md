@@ -56,8 +56,9 @@ keep it, but get no more updates (uninstall with `sudo dnf remove <name>`).
 
 A GitHub Action (`.github/workflows/update.yml`) runs `update` and `build`
 every 6 hours, so pushed packages follow upstream on their own. It also
-builds bumps you committed and pushed with `./pkg update` yourself, and
-rebuilds packages whose latest COPR build failed. Another one
+runs when you push a change to `packages/`, so bumps you made with
+`./pkg update` get built right away, and it rebuilds packages whose latest
+COPR build failed. Another one
 (`test.yml`) checks daily that updating and the latest COPR builds still
 work. GitHub mails you when either fails.
 
