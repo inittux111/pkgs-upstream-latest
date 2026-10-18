@@ -9,7 +9,8 @@ builds them.
 
 ```bash
 sudo dnf install copr-cli rpmdevtools rpm-build jq gh
-# Save your API token from https://copr.fedorainfracloud.org/api/ to ~/.config/copr
+# Log in at COPR (Fedora account) and save your API token
+# from https://copr.fedorainfracloud.org/api/ to ~/.config/copr
 ./pkg setup        # create the COPR project (settings in copr.conf)
 ```
 
