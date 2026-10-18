@@ -1,6 +1,7 @@
 # pkgs-upstream-latest
 
-Build newer upstream releases of packages for Fedora using my [personal COPR repo](https://copr.fedorainfracloud.org/coprs/inittux0101/pkgs-upstream-latest).
+Build newer upstream releases of packages for Fedora for in my [personal COPR repo](https://copr.fedorainfracloud.org/coprs/inittux0101/pkgs-upstream-latest).
+
 Each package is a spec in `packages/<name>/`; `pkg` adds, updates and
 builds them.
 
