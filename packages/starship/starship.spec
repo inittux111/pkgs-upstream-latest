@@ -3,7 +3,7 @@
 # dependency versions pinned to upstream's Cargo.lock.
 
 Name:           starship
-Version:        1.26.0
+Version:        1.27.0
 Release:        1%{?dist}
 Summary:        Minimal, blazing-fast and infinitely customizable prompt for any shell
 
@@ -50,5 +50,8 @@ target/release/%{name} completions fish >%{buildroot}%{fish_completions_dir}/%{n
 %{fish_completions_dir}/%{name}.fish
 
 %changelog
+* Sun Oct 18 2026 Maarten van der Rijst <github@feedmebits.nl> - 1.27.0-1
+- Update to 1.27.0
+
 * Fri Oct 16 2026 Maarten van der Rijst <github@feedmebits.nl> - 1.26.0-1
 - Initial package
