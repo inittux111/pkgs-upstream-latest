@@ -6,9 +6,10 @@ builds them.
 
 ## Installing
 
-[my copr repo](https://copr.fedorainfracloud.org/coprs/inittux0101/pkgs-upstream-latest)
-is the better place to install these packages from, as it also builds them for
-Fedora 43 and newer:
+The RPM in the [GitHub release](https://github.com/inittux111/pkgs-upstream-latest/releases)
+is for Fedora 44 only. For other Fedora versions, use
+[my copr repo](https://copr.fedorainfracloud.org/coprs/inittux0101/pkgs-upstream-latest),
+which builds the packages for Fedora 43 and newer:
 
 ```bash
 sudo dnf copr enable inittux0101/pkgs-upstream-latest
