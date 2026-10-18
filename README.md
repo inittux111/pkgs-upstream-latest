@@ -21,15 +21,17 @@ sudo dnf install copr-cli rpmdevtools rpm-build jq gh
 ./pkg add <name> github:owner/repo    # otherwise: give the upstream,
 ./pkg add <name> gitlab:group/project #   on GitHub or GitLab
 ./pkg add <name> https://gitlab.com/group/project   # a URL works too
-./pkg build <name>                    # build it in COPR
+./pkg build <name>                    # start its build on COPR
 git add packages/<name> && git commit -m "Add <name>" && git push
 ```
 
 For example `./pkg add starship github:starship/starship` or
 `./pkg add btrfs-assistant gitlab:btrfs-assistant/btrfs-assistant`.
-`add` writes a spec for the latest upstream release. Fedora's specs and Rust
-and Go projects usually build as-is; for other projects `add` lists `TODO`s
-to fill in (dependencies and installed files) before you run `build`.
+`add` adds the package to this repo, writing a spec for the latest upstream
+release under `packages/<name>/`; `build` then starts its build on COPR.
+Fedora's specs and Rust and Go projects usually build as-is; for other
+projects `add` lists `TODO`s to fill in (dependencies and installed files)
+before you run `build`.
 
 If a build fails, fix `packages/<name>/<name>.spec` and run `build` again.
 
