@@ -217,7 +217,7 @@ cmd_list() {
 }
 
 cmd_update() {
-    need rpmspec curl jq rpmdev-bumpspec git
+    need rpmspec curl jq rpmdev-bumpspec
     local commit=1 push=1 arg name names="" have latest spec dirty updated=0 rc=0
     for arg in "$@"; do
         case "$arg" in
@@ -227,6 +227,7 @@ cmd_update() {
             *)  names="$names $arg" ;;
         esac
     done
+    (( ! commit )) || need git
     names="${names:-$(package_names)}"
     for name in $names; do
         spec="$(spec_of "$name")"
@@ -235,7 +236,11 @@ cmd_update() {
         if is_newer "$have" "$latest"; then
             log "$name: updating $have -> $latest"
             # Committing packages/<pkg> would also commit edits made by hand.
-            dirty="$(git -C "$ROOT_DIR" status --porcelain -- "packages/$name")"
+            # Only with commit: --no-commit must also work where git can't.
+            dirty=""
+            if (( commit )); then
+                dirty="$(git -C "$ROOT_DIR" status --porcelain -- "packages/$name")"
+            fi
             rpmdev-bumpspec -n "$latest" -c "Update to $latest" "$spec"
             if (( commit )) && [[ -z "$dirty" ]]; then
                 git -C "$ROOT_DIR" commit -q -m "$name: update to $latest" -- "packages/$name"
