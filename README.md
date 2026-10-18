@@ -1,6 +1,6 @@
 # pkgs-upstream-latest
 
-Fedora packages built from the latest upstream releases, hosted in my [personal COPR repo](https://copr.fedorainfracloud.org/coprs/inittux0101/pkgs-upstream-latest).
+Fedora packages built from the latest upstream releases, hosted in my personal [COPR repo](https://copr.fedorainfracloud.org/coprs/inittux0101/pkgs-upstream-latest).
 
 Each package is a spec in `packages/<name>/`; `pkg` adds, updates and
 builds them.
