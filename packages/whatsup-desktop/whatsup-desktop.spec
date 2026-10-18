@@ -3,7 +3,7 @@
 # instead of using a vendored tarball.
 
 Name:           whatsup-desktop
-Version:        1.0.3
+Version:        1.0.4
 Release:        1%{?dist}
 Summary:        WhatsApp Web for GNOME
 
@@ -59,6 +59,9 @@ appstream-util validate-relax --nonet %{buildroot}%{_datadir}/metainfo/app.whats
 %{_datadir}/icons/hicolor/symbolic/apps/app.whatsup_desktop.WhatsUp-unread-symbolic.svg
 
 %changelog
+* Sun Oct 18 2026 Maarten van der Rijst <github@feedmebits.nl> - 1.0.4-1
+- Update to 1.0.4
+
 * Sun Oct 18 2026 Maarten van der Rijst <github@feedmebits.nl> - 1.0.3-1
 - Update to 1.0.3
 
