@@ -1,4 +1,4 @@
-# Once a day: bump the specs in packages/ to the latest upstream releases,
+# Every 6 hours: bump the specs in packages/ to the latest upstream releases,
 # commit the bumps to master and build them in COPR, and rebuild any package
 # whose latest COPR build is missing, outdated or failed. Each built package's
 # commit gets a "COPR build" status (the circle/checkmark/cross next to it on
@@ -12,7 +12,7 @@ name: Update packages
 
 on:
   schedule:
-    - cron: "23 4 * * *"  # daily at 04:23 UTC
+    - cron: "23 */6 * * *"  # every 6 hours at :23 UTC (00:23, 06:23, 12:23, 18:23)
   workflow_dispatch:
 
 permissions:
@@ -91,7 +91,7 @@ jobs:
 
       # Builds the bumps, and also rebuilds any package whose latest COPR build
       # isn't of its spec's version or failed (e.g. a COPR hiccup), so such a
-      # build gets retried the next day. Failures on rawhide (Fedora's
+      # build gets retried on the next run. Failures on rawhide (Fedora's
       # development branch, often broken for reasons outside the package) are
       # only warnings, as in the test workflow.
       - name: Build in COPR
