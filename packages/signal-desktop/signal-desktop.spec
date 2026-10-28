@@ -8,7 +8,7 @@
 %global __requires_exclude ^lib(ffmpeg|EGL|GLESv2|vk_swiftshader|vulkan)\\.so.*$
 
 Name:           signal-desktop
-Version:        8.32.0
+Version:        8.33.0
 Release:        1%{?dist}
 Summary:        Private messaging from your desktop
 
@@ -49,6 +49,9 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/%{name}.desktop
 %{_datadir}/icons/hicolor/*/apps/%{name}.png
 
 %changelog
+* Wed Oct 28 2026 Maarten van der Rijst <github@feedmebits.nl> - 8.33.0-1
+- Update to 8.33.0
+
 * Tue Oct 20 2026 Maarten van der Rijst <github@feedmebits.nl> - 8.32.0-1
 - Update to 8.32.0
 
