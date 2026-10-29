@@ -2,7 +2,7 @@
 # (COPR_ENABLE_NET=on in copr.conf).
 
 Name:           virt-manager-nextgen
-Version:        0.3.0
+Version:        1.0.0
 Release:        1%{?dist}
 Summary:        TODO: one-line summary
 
@@ -37,5 +37,8 @@ find target/release -maxdepth 1 -type f -perm -u+x ! -name "*.so" \
 %{_bindir}/*
 
 %changelog
+* Thu Oct 29 2026 Maarten <github@feedmebits.nl> - 1.0.0-1
+- Update to 1.0.0
+
 * Thu Oct 29 2026 Maarten van der Rijst <github@feedmebits.nl> - 0.3.0-1
 - Initial package
