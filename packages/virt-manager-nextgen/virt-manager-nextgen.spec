@@ -7,7 +7,7 @@
 %global app_id io.github.inittux111.VirtManagerNextgen
 
 Name:           virt-manager-nextgen
-Version:        1.0.0
+Version:        1.1.0
 Release:        1%{?dist}
 Summary:        Create, run and manage QEMU/KVM virtual machines
 
@@ -84,6 +84,9 @@ appstreamcli validate --no-net %{buildroot}%{_metainfodir}/%{app_id}.metainfo.xm
 %{_datadir}/icons/hicolor/symbolic/apps/%{app_id}-symbolic.svg
 
 %changelog
+* Mon Nov 02 2026 Maarten van der Rijst <github@feedmebits.nl> - 1.1.0-1
+- Update to 1.1.0
+
 * Thu Oct 29 2026 Maarten <github@feedmebits.nl> - 1.0.0-1
 - Update to 1.0.0
 
