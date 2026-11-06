@@ -125,6 +125,46 @@ latest_tag() {
     printf '%s\n' "${tag#v}"
 }
 
+# release_date <forge:owner/repo> <version>: when <version> was released
+# (ISO 8601): the release's date, else the date of the tagged commit
+release_date() {
+    local forge="${1%%:*}" repo="${1#*:}" id="${1#*:}" tag date=""
+    id="${id//\//%2F}"
+    for tag in "v$2" "$2"; do
+        case "$forge" in
+            github)
+                date="$(github_api "repos/$repo/releases/tags/$tag" 2>/dev/null \
+                    | jq -r '.published_at // empty')" || true
+                [[ -n "$date" ]] || date="$(github_api "repos/$repo/commits/$tag" 2>/dev/null \
+                    | jq -r '.commit.committer.date // empty')" || true
+                ;;
+            gitlab)
+                date="$(curl -fsSL "https://gitlab.com/api/v4/projects/$id/releases/$tag" 2>/dev/null \
+                    | jq -r '.released_at // empty')" || true
+                [[ -n "$date" ]] || date="$(curl -fsSL "https://gitlab.com/api/v4/projects/$id/repository/tags/$tag" 2>/dev/null \
+                    | jq -r '.commit.committed_date // empty')" || true
+                ;;
+        esac
+        if [[ -n "$date" ]]; then
+            printf '%s\n' "$date"
+            return 0
+        fi
+    done
+    return 1
+}
+
+# missing_sources <spec>: print the spec's remote sources that can't be
+# downloaded (checked with a HEAD request, else a 1-byte ranged GET)
+missing_sources() {
+    local url
+    while read -r _ url; do
+        [[ "$url" == *://* ]] || continue
+        curl -fsIL --max-time 60 -o /dev/null "$url" 2>/dev/null \
+            || curl -fsL --max-time 60 -r 0-0 -o /dev/null "$url" 2>/dev/null \
+            || printf '%s\n' "$url"
+    done < <(spectool -l "$1" 2>/dev/null)
+}
+
 # upstream_from_url <url | forge:path>: print github:owner/repo or gitlab:group/project
 upstream_from_url() {
     local url="${1%/}"
@@ -217,9 +257,13 @@ cmd_list() {
     return "$rc"
 }
 
+# Exit status: 0 OK, 1 a lookup failed or a release's sources are still
+# missing after SOURCE_GRACE_HOURS, 3 only skipped releases whose sources
+# aren't downloadable yet (they're retried on the next run).
 cmd_update() {
-    need rpmspec curl jq rpmdev-bumpspec
+    need rpmspec curl jq rpmdev-bumpspec spectool
     local commit=1 push=1 arg name names="" have latest spec dirty updated=0 rc=0
+    local backup missing released ts age pending=0
     for arg in "$@"; do
         case "$arg" in
             --no-commit) commit=0 push=0 ;;
@@ -242,7 +286,28 @@ cmd_update() {
             if (( commit )); then
                 dirty="$(git -C "$ROOT_DIR" status --porcelain -- "packages/$name")"
             fi
+            backup="$(mktemp)"
+            cp "$spec" "$backup"
             rpmdev-bumpspec -n "$latest" -c "Update to $latest" "$spec"
+            missing="$(missing_sources "$spec" | paste -sd ' ')"
+            if [[ -n "$missing" ]]; then
+                cp "$backup" "$spec"
+                rm -f "$backup"
+                age=""
+                if released="$(release_date "$(upstream_of "$name")" "$latest")" \
+                    && ts="$(date -d "$released" +%s 2>/dev/null)"; then
+                    age=$(( ($(date +%s) - ts) / 3600 ))
+                fi
+                if [[ -n "$age" ]] && (( age < SOURCE_GRACE_HOURS )); then
+                    warn "$name: $latest was released ${age}h ago, but its sources aren't downloadable yet; skipping it until they are: $missing"
+                    pending=1
+                else
+                    warn "$name: the sources of $latest (released $([[ -n "$age" ]] && echo "${age}h ago" || echo "at an unknown time")) can't be downloaded; check the spec's Source URLs: $missing"
+                    rc=1
+                fi
+                continue
+            fi
+            rm -f "$backup"
             if (( commit )) && [[ -z "$dirty" ]]; then
                 git -C "$ROOT_DIR" commit -q -m "$name: update to $latest" -- "packages/$name"
                 updated=$((updated + 1))
@@ -261,6 +326,7 @@ cmd_update() {
     else
         log "Committed $updated update(s); not pushed."
     fi
+    (( rc != 0 || ! pending )) || rc=3
     return "$rc"
 }
 

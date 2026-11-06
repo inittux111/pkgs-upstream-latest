@@ -64,7 +64,11 @@ A GitHub Action (`.github/workflows/update.yml`) runs `update` and `build`
 every 6 hours, so pushed packages follow upstream on their own. It also
 runs when you push a change to `packages/`, so bumps you made with
 `./pkg update` get built right away, and it rebuilds packages whose latest
-COPR build failed. Another one
+COPR build failed. A new release whose sources can't be downloaded yet
+(some upstreams tag before publishing their downloads) is skipped until they
+can; only once it's older than `SOURCE_GRACE_HOURS` (copr.conf, default 72)
+does the run fail, so a Source URL that really changed doesn't go unnoticed.
+Another one
 (`test.yml`) checks daily that updating and the latest COPR builds still
 work. GitHub mails you when either fails.
 

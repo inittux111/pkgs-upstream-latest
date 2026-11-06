@@ -48,9 +48,21 @@ jobs:
             pkg="$(basename "$spec" .spec)"
             echo "::group::$pkg"
             have="$(query "$spec")"
-            new=""
+            new="" rc=0
+            cp "$spec" "$spec.orig"
             sed -i -E 's/^(Version:[[:space:]]*).*/\10/' "$spec"
-            if ./pkg update --no-commit "$pkg" \
+            ./pkg update --no-commit "$pkg" || rc=$?
+            if [ "$rc" = 3 ]; then
+              # The newest release's sources aren't downloadable yet; test the
+              # spec's version instead.
+              mv "$spec.orig" "$spec"
+              echo "::endgroup::"
+              echo "::warning::$pkg: the newest release's sources aren't downloadable yet; testing the spec's $have instead"
+              echo "::group::$pkg $have"
+              rc=0
+            fi
+            rm -f "$spec.orig"
+            if [ "$rc" = 0 ] \
               && new="$(query "$spec")" && [ "$new" != 0 ] \
               && [ "$(printf '%s\n%s\n' "$have" "$new" | sort -V | head -n1)" = "$have" ] \
               && ./pkg srpm "$pkg"; then
