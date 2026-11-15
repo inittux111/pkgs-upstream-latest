@@ -10,7 +10,7 @@
 %global __requires_exclude ^lib(ffmpeg|EGL|GLESv2|vk_swiftshader|vulkan)\\.so.*$
 
 Name:           youtube-music
-Version:        3.12.0
+Version:        3.12.1
 Release:        1%{?dist}
 Summary:        YouTube Music desktop app with custom plugins
 
@@ -51,5 +51,8 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/com.github.th-ch.yout
 %{_datadir}/icons/hicolor/*/apps/%{name}.png
 
 %changelog
+* Sun Nov 15 2026 Maarten van der Rijst <github@feedmebits.nl> - 3.12.1-1
+- Update to 3.12.1
+
 * Fri Oct 16 2026 Maarten van der Rijst <github@feedmebits.nl> - 3.12.0-1
 - Initial package, repackaged from the official RPM
