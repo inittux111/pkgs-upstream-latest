@@ -3,9 +3,9 @@
 # instead of using a vendored tarball.
 #
 # Built from source rather than repackaging upstream's release RPM: that RPM
-# is built for one Fedora release (.fc44) and links against system
-# libadwaita and webkitgtk, so it would break on the other chroots in
-# copr.conf.
+# is built for a single Fedora release (currently Fedora 45) and links
+# against system libadwaita and webkitgtk, so it would break on the other
+# chroots in copr.conf.
 
 Name:           whatsup-desktop
 Version:        1.3.1
