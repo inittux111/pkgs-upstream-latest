@@ -1,6 +1,11 @@
 # Based on upstream's packaging/fedora/whatsup-desktop.spec, but cargo
 # downloads the crates at build time (COPR_ENABLE_NET=on in copr.conf)
 # instead of using a vendored tarball.
+#
+# Built from source rather than repackaging upstream's release RPM: that RPM
+# is built for one Fedora release (.fc44) and links against system
+# libadwaita and webkitgtk, so it would break on the other chroots in
+# copr.conf.
 
 Name:           whatsup-desktop
 Version:        1.3.1

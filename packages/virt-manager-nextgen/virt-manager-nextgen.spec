@@ -1,6 +1,11 @@
 # Based on upstream's packaging/virt-manager-nextgen.spec, but cargo
 # downloads the crates at build time (COPR_ENABLE_NET=on in copr.conf)
 # instead of using a vendored crate tarball.
+#
+# Built from source rather than repackaging upstream's release RPM: that RPM
+# is built for one Fedora release (.fc44) and links against system GTK 4,
+# libadwaita, libvirt, SPICE, gtk-vnc and VTE, so it would break on the
+# other chroots in copr.conf.
 
 # Rust release builds carry no debug info worth a separate package.
 %global debug_package %{nil}
