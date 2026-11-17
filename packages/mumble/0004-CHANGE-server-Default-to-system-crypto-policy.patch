@@ -1,0 +1,35 @@
+From c2d712bd86a47272432b7c9070d37e3047224847 Mon Sep 17 00:00:00 2001
+From: Carl George <carl@george.computer>
+Date: Wed, 6 Apr 2022 19:31:23 -0500
+Subject: [PATCH] CHANGE(server): Default to system crypto policy
+
+https://docs.fedoraproject.org/en-US/packaging-guidelines/CryptoPolicies/
+---
+ auxiliary_files/mumble-server.ini | 2 +-
+ src/SSL.cpp                       | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/auxiliary_files/mumble-server.ini b/auxiliary_files/mumble-server.ini
+--- a/auxiliary_files/mumble-server.ini
++++ b/auxiliary_files/mumble-server.ini
+@@ -295,7 +295,7 @@
+ ; Note: Changing this option may impact the backwards compatibility of your
+ ; server, and can remove the ability for older Mumble clients to be able
+ ; to connect to it.
+-;sslCiphers=EECDH+AESGCM:EDH+aRSA+AESGCM:DHE-RSA-AES256-SHA:DHE-RSA-AES128-SHA:AES256-SHA:AES128-SHA
++;sslCiphers="PROFILE=SYSTEM"
+ 
+ ; If the server is started as root, which user should it switch to?
+ ; This option is ignored if the server isn't started with root privileges.
+diff --git a/src/SSL.cpp b/src/SSL.cpp
+--- a/src/SSL.cpp
++++ b/src/SSL.cpp
+@@ -32,7 +32,7 @@
+ }
+ 
+ QString MumbleSSL::defaultOpenSSLCipherString() {
+-	return QLatin1String("EECDH+AESGCM:EDH+aRSA+AESGCM:DHE-RSA-AES256-SHA:DHE-RSA-AES128-SHA:AES256-SHA:AES128-SHA");
++	return QLatin1String("PROFILE=SYSTEM");
+ }
+ 
+ QList< QSslCipher > MumbleSSL::ciphersFromOpenSSLCipherString(QString cipherString) {

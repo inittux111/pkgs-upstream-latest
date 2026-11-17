@@ -1,0 +1,67 @@
+From e256cf470e8c7bd19ad3547e0699297c4241e550 Mon Sep 17 00:00:00 2001
+From: Carl George <carl@george.computer>
+Date: Wed, 6 Apr 2022 20:07:28 -0500
+Subject: [PATCH] FIX(client): Avoid loading unversioned libraries
+
+---
+ src/mumble/JackAudio.cpp  | 1 -
+ src/mumble/PAAudio.cpp    | 1 -
+ src/mumble/PipeWire.cpp   | 4 ----
+ src/mumble/PulseAudio.cpp | 2 +-
+ 4 files changed, 1 insertion(+), 7 deletions(-)
+
+diff --git a/src/mumble/JackAudio.cpp b/src/mumble/JackAudio.cpp
+index cd1072218..0c5132fda 100644
+--- a/src/mumble/JackAudio.cpp
++++ b/src/mumble/JackAudio.cpp
+@@ -199,7 +199,6 @@ JackAudioSystem::JackAudioSystem() : bAvailable(false), users(0), client(nullptr
+ 	alternatives << QLatin1String("libjack.dylib");
+ 	alternatives << QLatin1String("libjack.0.dylib");
+ #else
+-	alternatives << QLatin1String("libjack.so");
+ 	alternatives << QLatin1String("libjack.so.0");
+ #endif
+ 	for (const QString &lib : alternatives) {
+diff --git a/src/mumble/PAAudio.cpp b/src/mumble/PAAudio.cpp
+index cdcfd12d8..b1c6960b9 100644
+--- a/src/mumble/PAAudio.cpp
++++ b/src/mumble/PAAudio.cpp
+@@ -127,7 +127,6 @@ PortAudioSystem::PortAudioSystem() : bOk(false) {
+ 	alternatives << QLatin1String("libportaudio.dylib");
+ 	alternatives << QLatin1String("libportaudio.2.dylib");
+ #else
+-	alternatives << QLatin1String("libportaudio.so");
+ 	alternatives << QLatin1String("libportaudio.so.2");
+ #endif
+ 	for (const auto &lib : alternatives) {
+diff --git a/src/mumble/PipeWire.cpp b/src/mumble/PipeWire.cpp
+index bd55d87c1..51d4578c5 100644
+--- a/src/mumble/PipeWire.cpp
++++ b/src/mumble/PipeWire.cpp
+@@ -130,10 +130,6 @@ static PipeWireInit pwi;
+ PipeWireSystem::PipeWireSystem() : m_ok(false), m_users(0) {
+ 	// clang-format off
+ 	const QStringList names {
+-		// Common names used by Linux distributions.
+-		"libpipewire.so",
+-		"libpipewire-0.3.so",
+-		// Name used by the Flatpak FreeDesktop runtime.
+ 		"libpipewire-0.3.so.0"
+ 	};
+ 	// clang-format on
+diff --git a/src/mumble/PulseAudio.cpp b/src/mumble/PulseAudio.cpp
+index 521ea1e73..3da9e1957 100644
+--- a/src/mumble/PulseAudio.cpp
++++ b/src/mumble/PulseAudio.cpp
+@@ -1008,7 +1008,7 @@ void PulseAudioOutput::run() {
+ }
+ 
+ PulseAudio::PulseAudio() : m_ok(false) {
+-	const QStringList alternatives{ QLatin1String("libpulse.so"), QLatin1String("libpulse.so.0") };
++	const QStringList alternatives{ QLatin1String("libpulse.so.0") };
+ 
+ 	for (const QString &alternative : alternatives) {
+ 		m_lib.setFileName(alternative);
+-- 
+2.49.0
+
