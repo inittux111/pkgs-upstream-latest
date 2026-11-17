@@ -28,9 +28,21 @@ Repackaged apps (usually Electron) go under `/opt/<name>`. Exclude the
 bundled libraries from automatic provides and requires, and list the runtime
 dependencies by hand (see teams-for-linux.spec).
 
-## Not Fedora
+## Fedora compatibility
 
 This repo only feeds a personal COPR, and getting into Fedora is not a goal.
-Don't refactor specs to follow Fedora packaging guidelines (vendored crates,
-`%cargo_*` macros, dropping `/opt` repackaging, bundled-license audits)
-unless asked. A spec is good when it builds and works on COPR.
+Specs don't have to follow Fedora's packaging guidelines fully. Don't refactor
+for that unless asked (vendored crates, `%cargo_*` macros, dropping `/opt`
+repackaging, bundled-license audits).
+
+What matters is that the packages install cleanly next to Fedora's:
+
+- Don't install files that a Fedora package owns. Keep repackaged apps
+  self-contained under `/opt/<name>`, with only a link in `/usr/bin`,
+  `.desktop` files and icons outside it.
+- Don't export bundled libraries as Provides (or Requires), so dnf never uses
+  this repo's packages to satisfy another package's dependency.
+- When a package replaces one in Fedora (btrfs-assistant and mangohud do),
+  start from Fedora's spec (`./pkg add` does this). Keep the same package
+  and subpackage names and the same file layout, and make the
+  version-release newer than Fedora's so the COPR build wins.
