@@ -192,6 +192,17 @@ upstream_of() {
     )
 }
 
+# excluded_chroots <package>: EXCLUDE_CHROOTS from its package.conf, the
+# chroots of copr.conf it can't build in (e.g. a Fedora release too old)
+excluded_chroots() {
+    (
+        EXCLUDE_CHROOTS=""
+        # shellcheck source=/dev/null
+        [[ -f "$ROOT_DIR/packages/$1/package.conf" ]] && source "$ROOT_DIR/packages/$1/package.conf"
+        printf '%s\n' "$EXCLUDE_CHROOTS"
+    )
+}
+
 cmd_setup() {
     need copr-cli curl
     local owner chroot args=()
@@ -590,11 +601,12 @@ cmd_srpm() {
 
 # build_one <package> [copr-cli args]: build one package in COPR
 build_one() {
-    local name="$1" srpm
+    local name="$1" srpm chroot exclude=()
     shift
+    for chroot in $(excluded_chroots "$name"); do exclude+=(--exclude-chroot "$chroot"); done
     srpm="$(cmd_srpm "$name" | tail -n1)"
     log "Submitting $(basename "$srpm") to COPR project $COPR_PROJECT"
-    copr-cli build "$COPR_PROJECT" "$srpm" "$@"
+    copr-cli build "$COPR_PROJECT" "$srpm" "${exclude[@]}" "$@"
 }
 
 cmd_build() {

@@ -34,6 +34,9 @@ projects `add` lists `TODO`s to fill in (dependencies and installed files)
 before you run `build`.
 
 If a build fails, fix `packages/<name>/<name>.spec` and run `build` again.
+If a package can't build on one of the chroots in `copr.conf` (say, its
+Fedora release is too old), list that chroot in its `package.conf` as
+`EXCLUDE_CHROOTS="fedora-43-x86_64"` and `build` skips it.
 
 ## Other commands
 
