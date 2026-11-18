@@ -6,13 +6,14 @@
 %global debug_package %{nil}
 %global __strip /bin/true
 # Don't export or require the libraries and helper binaries Electron bundles;
-# the runtime dependencies are listed by hand, as in the upstream RPM.
+# the runtime dependencies are listed by hand: the upstream RPM's, plus the
+# libraries Electron links against or loads that it leaves out.
 %global __provides_exclude_from ^/opt/teams-for-linux/.*$
 %global __requires_exclude_from ^/opt/teams-for-linux/.*$
 
 Name:           teams-for-linux
 Version:        2.32.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Unofficial Microsoft Teams for Linux client
 
 License:        GPL-3.0-or-later
@@ -23,6 +24,7 @@ ExclusiveArch:  x86_64
 BuildRequires:  cpio
 BuildRequires:  desktop-file-utils
 
+Requires:       alsa-lib
 Requires:       at-spi2-core
 Requires:       gtk3
 Requires:       hicolor-icon-theme
@@ -30,7 +32,10 @@ Requires:       libnotify
 Requires:       libuuid
 Requires:       libXScrnSaver
 Requires:       libXtst
+Requires:       mesa-libgbm
 Requires:       nss
+# Loaded at run time for audio.
+Requires:       pulseaudio-libs
 Requires:       xdg-utils
 
 %description
@@ -66,5 +71,8 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/%{name}.desktop
 %{_datadir}/icons/hicolor/*/apps/%{name}.png
 
 %changelog
+* Wed Nov 18 2026 Maarten van der Rijst <github@feedmebits.nl> - 2.32.0-2
+- Require alsa-lib, mesa-libgbm and pulseaudio-libs, which Electron needs
+
 * Tue Nov 17 2026 Maarten <github@feedmebits.nl> - 2.32.0-1
 - Initial package, repackaged from the official RPM

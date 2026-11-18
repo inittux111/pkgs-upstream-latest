@@ -6,13 +6,14 @@
 %global debug_package %{nil}
 %global __strip /bin/true
 # Don't export or require the libraries and helper binaries Electron bundles;
-# the runtime dependencies are listed by hand, as in the upstream RPM.
+# the runtime dependencies are listed by hand: the upstream RPM's, plus the
+# libraries Electron links against or loads that it leaves out.
 %global __provides_exclude_from ^/opt/Vesktop/.*$
 %global __requires_exclude_from ^/opt/Vesktop/.*$
 
 Name:           vesktop
 Version:        1.6.9
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Custom Discord desktop app with Vencord built in
 
 License:        GPL-3.0-only
@@ -23,6 +24,7 @@ ExclusiveArch:  x86_64
 BuildRequires:  cpio
 BuildRequires:  desktop-file-utils
 
+Requires:       alsa-lib
 Requires:       at-spi2-core
 Requires:       gtk3
 Requires:       hicolor-icon-theme
@@ -30,7 +32,10 @@ Requires:       libnotify
 Requires:       libuuid
 Requires:       libXScrnSaver
 Requires:       libXtst
+Requires:       mesa-libgbm
 Requires:       nss
+# Loaded at run time for audio.
+Requires:       pulseaudio-libs
 Requires:       xdg-utils
 
 %description
@@ -66,5 +71,8 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/vesktop.desktop
 %{_datadir}/icons/hicolor/scalable/apps/vesktop.svg
 
 %changelog
+* Wed Nov 18 2026 Maarten van der Rijst <github@feedmebits.nl> - 1.6.9-2
+- Require alsa-lib, mesa-libgbm and pulseaudio-libs, which Electron needs
+
 * Wed Nov 18 2026 Maarten <github@feedmebits.nl> - 1.6.9-1
 - Initial package, repackaged from the official RPM
