@@ -37,6 +37,10 @@ jobs:
         run: dnf install -y --setopt=install_weak_deps=False git-core rpmdevtools rpm-build jq ShellCheck
 
       - uses: actions/checkout@v7
+        with:
+          # The whole history: pkg check counts failed builds since each
+          # package last changed.
+          fetch-depth: 0
 
       - name: ShellCheck pkg
         run: shellcheck -x pkg
@@ -88,52 +92,7 @@ jobs:
           # The container runs as root, but the checkout isn't owned by root.
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git checkout -- packages  # undo the version 0 test
-          . ./copr.conf
-          api="https://copr.fedorainfracloud.org/api_3"
-          builds="$(curl -fsSL "$api/package/list?ownername=$COPR_OWNER&projectname=$COPR_PROJECT&with_latest_build=true")"
-          failed=""
-          for spec in packages/*/*.spec; do
-            pkg="$(basename "$spec" .spec)"
-            want="$(rpmspec -q --srpm --define 'dist %{nil}' \
-              --qf '%|EPOCH?{%{EPOCH}:}|%{VERSION}-%{RELEASE}\n' "$spec" | head -n1)"
-            build="$(jq -c --arg p "$pkg" '.items[] | select(.name == $p) | .builds.latest // empty' <<<"$builds")"
-            if [ -z "$build" ]; then
-              echo "::error::$pkg: never built in COPR; build it with: ./pkg build $pkg"
-              failed="$failed $pkg"
-              continue
-            fi
-            id="$(jq -r .id <<<"$build")"
-            have="$(jq -r '.source_package.version // "?"' <<<"$build")"
-            if [ "$have" != "$want" ]; then
-              echo "::error::$pkg: spec is at $want but the latest COPR build ($id) is $have; build it with: ./pkg build $pkg"
-              failed="$failed $pkg"
-              continue
-            fi
-            ok=1
-            while read -r chroot state; do
-              case "$state" in
-                succeeded|skipped|forked) ;;
-                failed|canceled)
-                  if [[ "$chroot" == *rawhide* ]]; then
-                    echo "::warning::$pkg $have: $state on $chroot (build $id)"
-                  else
-                    echo "::error::$pkg $have: $state on $chroot, see https://copr.fedorainfracloud.org/coprs/build/$id"
-                    ok=0
-                  fi
-                  ;;
-                *) echo "::warning::$pkg $have: still $state on $chroot (build $id)" ;;
-              esac
-            done < <(curl -fsSL "$api/build-chroot/list?build_id=$id" | jq -r '.items[] | "\(.name) \(.state)"')
-            if [ "$ok" = 1 ]; then
-              echo "$pkg $have: OK (build $id)"
-            else
-              failed="$failed $pkg"
-            fi
-          done
-          if [ -n "$failed" ]; then
-            echo "::error::COPR builds not OK for:$failed"
-            exit 1
-          fi
+          ./pkg check
 
   # The Fedora releases of the chroots in copr.conf, for the install job.
   releases:

@@ -48,6 +48,8 @@ Fedora release is too old), list that chroot in its `package.conf` as
 ./pkg bump <name> <version>  # set a spec to a specific version
 ./pkg srpm <name>            # only build the SRPM locally, to test a spec
 ./pkg status                 # recent COPR builds
+./pkg check [<name>]         # is the latest COPR build of the spec's
+                             # version, and did it succeed?
 ./pkg --help                 # usage summary of every command
 ```
 
@@ -67,7 +69,9 @@ A GitHub Action (`.github/workflows/update.yml`) runs `update` and `build`
 every 6 hours, so pushed packages follow upstream on their own. It also
 runs when you push a change to `packages/`, so bumps you made with
 `./pkg update` get built right away, and it rebuilds packages whose latest
-COPR build failed. A new release whose sources can't be downloaded yet
+COPR build failed, until `MAX_FAILED_BUILDS` (copr.conf, default 2) builds
+of the same version have failed; committing a change to the package lets it
+try again. A new release whose sources can't be downloaded yet
 (some upstreams tag before publishing their downloads) is skipped until they
 can; only once it's older than `SOURCE_GRACE_HOURS` (copr.conf, default 72)
 does the run fail, so a Source URL that really changed doesn't go unnoticed.

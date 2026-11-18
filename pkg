@@ -9,6 +9,7 @@ shopt -s inherit_errexit
 SELF="$(readlink -f "${BASH_SOURCE[0]}")"
 ROOT_DIR="$(dirname "$SELF")"
 BUILD_DIR="$ROOT_DIR/build"
+COPR_API="https://copr.fedorainfracloud.org/api_3"
 # shellcheck source=copr.conf
 source "$ROOT_DIR/copr.conf"
 
@@ -43,6 +44,8 @@ Commands:
   bump <pkg> <version>    set a spec to a specific version
   srpm <pkg>              only build the SRPM locally, to test a spec
   status                  recent COPR builds
+  check [<pkg>]           is the latest COPR build of the spec's version, and
+                          did it succeed? (--todo: list packages to build)
   setup                   create the COPR project or apply copr.conf to it
 
 Settings: copr.conf (project: $COPR_PROJECT). See README.md for details.
@@ -665,6 +668,112 @@ cmd_status() {
     copr-cli list-builds "$COPR_PROJECT" | head -n 20
 }
 
+# note <error|warning> <message>: report a problem found by check, as a
+# GitHub annotation when check runs in GitHub Actions (except with --todo,
+# whose stdout is the list of packages)
+note() {
+    local level="$1"
+    shift
+    if (( ${annotate:-0} )); then
+        printf '::%s::%s\n' "$level" "$*"
+    elif [[ "$level" == error ]]; then
+        printf '\e[1;31mError:\e[0m %s\n' "$*" >&2
+    else
+        warn "$*"
+    fi
+}
+
+# failed_builds <package> <version-release>: how many COPR builds of that
+# version-release failed or were canceled since packages/<package> last
+# changed in git (all of them without git history)
+failed_builds() {
+    local since
+    since="$(git -C "$ROOT_DIR" log -1 --format=%ct -- "packages/$1" 2>/dev/null)" || since=""
+    curl -fsSL "$COPR_API/build/list?ownername=$COPR_OWNER&projectname=$COPR_PROJECT&packagename=$1" \
+        | jq --arg v "$2" --argjson t "${since:-0}" \
+            '[.items[] | select(.source_package.version == $v and .submitted_on >= $t
+                               and (.state == "failed" or .state == "canceled"))] | length'
+}
+
+# check [--todo] [<pkg>...]: is each package's latest COPR build of its
+# spec's version-release, and did it succeed (failures on rawhide, Fedora's
+# often broken development branch, are only warnings)? Exits 1 if not.
+# With --todo, print the packages that need a build instead: never built,
+# outdated, or failed fewer than MAX_FAILED_BUILDS times since
+# packages/<pkg> last changed, so a broken spec isn't rebuilt forever.
+cmd_check() {
+    need rpmspec curl jq
+    local todo=0 annotate=0 arg names="" name spec want builds build id have state
+    # ok: 1 yes, 0 no, 2 still building
+    local chroots chroot bad failures ok need_build rc=0
+    for arg in "$@"; do
+        case "$arg" in
+            --todo) todo=1 ;;
+            -*) die "Unknown option '$arg'." ;;
+            *)  names="$names $arg" ;;
+        esac
+    done
+    [[ "${GITHUB_ACTIONS:-}" != true ]] || (( todo )) || annotate=1
+    names="${names:-$(package_names)}"
+    builds="$(curl -fsSL "$COPR_API/package/list?ownername=$COPR_OWNER&projectname=$COPR_PROJECT&with_latest_build=true")" \
+        || die "Could not list the packages of COPR project $COPR_OWNER/$COPR_PROJECT."
+    for name in $names; do
+        spec="$(spec_of "$name")"
+        want="$(rpmspec -q --srpm --define 'dist %{nil}' \
+            --qf '%|EPOCH?{%{EPOCH}:}|%{VERSION}-%{RELEASE}\n' "$spec" | head -n1)"
+        build="$(jq -c --arg p "$name" '.items[] | select(.name == $p) | .builds.latest // empty' <<<"$builds")"
+        id="$(jq -r '.id // empty' <<<"$build")"
+        have="$(jq -r '.source_package.version // empty' <<<"$build")"
+        state="$(jq -r '.state // empty' <<<"$build")"
+        ok=1 need_build=0
+        if [[ -z "$id" ]]; then
+            note error "$name: never built in COPR; build it with: ${0##*/} build $name"
+            ok=0 need_build=1
+        elif [[ "$have" != "$want" ]]; then
+            note error "$name: the spec is at $want, but the latest COPR build ($id) is $have; build it with: ${0##*/} build $name"
+            ok=0 need_build=1
+        else
+            case "$state" in
+                succeeded|skipped|forked) ;;
+                failed|canceled)
+                    chroots="$(curl -fsSL "$COPR_API/build-chroot/list?build_id=$id" \
+                        | jq -r '.items[] | select(.state == "failed" or .state == "canceled") | .name')" \
+                        || die "Could not look up COPR build $id."
+                    bad=""
+                    for chroot in $chroots; do
+                        if [[ "$chroot" == *rawhide* ]]; then
+                            note warning "$name $have: $state on $chroot (build $id)"
+                        else
+                            bad="$bad $chroot"
+                        fi
+                    done
+                    if [[ -n "$bad" ]]; then
+                        ok=0
+                        failures="$(failed_builds "$name" "$want")" \
+                            || die "Could not list the COPR builds of $name."
+                        if (( failures < MAX_FAILED_BUILDS )); then
+                            note error "$name $have: $state on$bad, see https://copr.fedorainfracloud.org/coprs/build/$id"
+                            need_build=1
+                        else
+                            note error "$name $have: $state on$bad, see https://copr.fedorainfracloud.org/coprs/build/$id; $failures builds of it failed since packages/$name last changed, so it isn't retried until that changes"
+                        fi
+                    fi
+                    ;;
+                *)  note warning "$name $have: still $state (build $id)"
+                    ok=2 ;;
+            esac
+        fi
+        if (( todo )); then
+            if (( need_build )); then printf '%s\n' "$name"; fi
+        elif (( ok == 1 )); then
+            printf '%s %s: OK (build %s)\n' "$name" "$have" "$id"
+        elif (( ok == 0 )); then
+            rc=1
+        fi
+    done
+    return "$rc"
+}
+
 main() {
     local cmd="${1:-}"
     shift || true
@@ -678,6 +787,7 @@ main() {
         build)   cmd_build "$@" ;;
         remove)  cmd_remove "$@" ;;
         status)  cmd_status "$@" ;;
+        check)   cmd_check "$@" ;;
         -h|--help|help|"") usage ;;
         *) usage >&2; die "Unknown command '$cmd'." ;;
     esac
