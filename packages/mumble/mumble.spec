@@ -6,7 +6,7 @@
 
 Name:           mumble
 Version:        1.5.939
-Release:        1%{?dist}
+Release:        2%{?dist}
 # Upstream versions are 1.5.<build number>; cmake builds the version from it.
 %global build_number %(echo %{version} | cut -d. -f3)
 Summary:        Low-latency and high-quality voice-chat program
@@ -132,8 +132,11 @@ Provides:       bundled(SPSCQueue)
 
 ExcludeArch:    %{ix86}
 
-# Don't let the overlay library satisfy other packages' dependencies.
+# Don't let the overlay library satisfy other packages' dependencies. Its
+# unversioned libmumbleoverlay.so link makes rpm require the library's soname,
+# which then nothing provides, so filter that out too.
 %global __provides_exclude_from ^%{_libdir}/mumble/.*$
+%global __requires_exclude ^libmumbleoverlay\\.so.*$
 
 
 %description
@@ -249,6 +252,10 @@ export QT_QPA_PLATFORM=offscreen
 
 
 %changelog
+* Wed Nov 18 2026 Maarten van der Rijst <github@feedmebits.nl> - 1.5.939-2
+- Don't require the overlay's own soname, which made mumble-overlay
+  uninstallable
+
 * Tue Nov 17 2026 Maarten <github@feedmebits.nl> - 1.5.939-1
 - Update to 1.5.939
 - Drop patches 0001-0003, which are in 1.5; rebase 0004 on 1.5
