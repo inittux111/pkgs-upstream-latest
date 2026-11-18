@@ -1,3 +1,5 @@
+# Built from source: upstream publishes no RPM or DEB, only AppImages.
+#
 # cargo downloads the crates at build time, and magpie's build script
 # downloads nvtop (COPR_ENABLE_NET=on in copr.conf).
 #

@@ -1,3 +1,6 @@
+# Built from source: upstream publishes no RPM or DEB (only prebuilt musl
+# tarballs, and Windows/macOS installers).
+#
 # Built with cargo straight from crates.io, so the COPR project needs network
 # access during builds (copr.conf: COPR_ENABLE_NET). --locked keeps the
 # dependency versions pinned to upstream's Cargo.lock.

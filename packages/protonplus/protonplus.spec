@@ -1,3 +1,5 @@
+# Built from source: upstream publishes no RPM or DEB, only AppImages.
+
 %global app_id com.vysp3r.ProtonPlus
 
 Name:           protonplus
