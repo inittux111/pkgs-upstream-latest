@@ -26,7 +26,11 @@ spec. For example:
 
 Repackaged apps (usually Electron) go under `/opt/<name>`. Exclude the
 bundled libraries from automatic provides and requires, and list the runtime
-dependencies by hand (see teams-for-linux.spec).
+dependencies by hand (see teams-for-linux.spec). Upstream RPMs often leave out
+libraries Electron needs (e.g. alsa-lib, mesa-libgbm), and CI only checks that
+packages install, not that they start. So install the package in a minimal
+Fedora container (`--setopt=install_weak_deps=False`) and check that
+`ldd /opt/<name>/<binary> | grep 'not found'` is empty.
 
 ## Fedora compatibility
 
