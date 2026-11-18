@@ -3,7 +3,10 @@
 # to the latest upstream release (at least the version in the spec) and build
 # the SRPM, which downloads the sources.
 # On schedule (not on pushes), also check that every package's latest COPR
-# build is of the spec's version and succeeded. A failed run sends you a mail.
+# build is of the spec's version and succeeded, and that every package in the
+# COPR repo installs on each Fedora release in copr.conf (except rawhide),
+# without weak dependencies, wins over Fedora's version of it, and owns no
+# files that another Fedora package owns. A failed run sends you a mail.
 name: Test updates and builds
 
 on:
@@ -29,8 +32,6 @@ jobs:
       # pkg uses it for the GitHub API (higher rate limit than anonymous).
       GITHUB_TOKEN: ${{ github.token }}
       RPM_PACKAGER: pkg test <test@localhost>
-      # COPR user that owns the project in copr.conf.
-      COPR_OWNER: inittux0101
     steps:
       - name: Install tools
         run: dnf install -y --setopt=install_weak_deps=False git-core rpmdevtools rpm-build jq ShellCheck
@@ -131,5 +132,92 @@ jobs:
           done
           if [ -n "$failed" ]; then
             echo "::error::COPR builds not OK for:$failed"
+            exit 1
+          fi
+
+  # The Fedora releases of the chroots in copr.conf, for the install job.
+  releases:
+    if: ${{ github.event_name != 'push' }}
+    runs-on: ubuntu-latest
+    outputs:
+      releases: ${{ steps.list.outputs.releases }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: list
+        run: |
+          . ./copr.conf
+          releases="$(for chroot in $CHROOTS; do
+            case "$chroot" in
+              fedora-rawhide-*) ;;  # often broken for reasons outside the packages
+              fedora-*-x86_64) r="${chroot#fedora-}"; echo "${r%-x86_64}" ;;
+            esac
+          done | jq -Rnc '[inputs]')"
+          echo "Releases: $releases"
+          echo "releases=$releases" >>"$GITHUB_OUTPUT"
+
+  install:
+    needs: releases
+    runs-on: ubuntu-latest
+    container: fedora:${{ matrix.release }}
+    strategy:
+      fail-fast: false
+      matrix:
+        release: ${{ fromJSON(needs.releases.outputs.releases) }}
+    name: install (Fedora ${{ matrix.release }})
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install every package from COPR
+        run: |
+          set -o pipefail
+          . ./copr.conf
+          release="$(rpm -E %fedora)"
+          repo="copr:copr.fedorainfracloud.org:$COPR_OWNER:$COPR_PROJECT"
+          # Fail instead of skipping the repo when COPR can't be reached.
+          curl -fsSL "https://copr.fedorainfracloud.org/coprs/$COPR_OWNER/$COPR_PROJECT/repo/fedora-$release/$COPR_OWNER-$COPR_PROJECT-fedora-$release.repo" \
+            | sed 's/^skip_if_unavailable=.*/skip_if_unavailable=False/' >/etc/yum.repos.d/copr.repo
+
+          # Every binary package in the COPR repo: name, NEVRA, source package.
+          packages="$(dnf repoquery -q --repo "$repo" --latest-limit 1 --arch x86_64,noarch \
+            --qf '%{name} %{full_nevra} %{source_name}\n' | grep -vE -- '-debug(info|source) ' | sort)"
+          [ -n "$packages" ] || { echo "::error::No packages in $repo"; exit 1; }
+
+          failed=""
+          while read -r name nevra source; do
+            echo "::group::$name"
+            ok=1
+            # The newest version dnf can find must be COPR's, or users never get it.
+            best="$(dnf repoquery -q --latest-limit 1 --arch x86_64,noarch --qf '%{full_nevra}\n' "$name" | tail -n1)"
+            if [ "$best" != "$nevra" ]; then
+              echo "::error::$name: Fedora $release has $best, newer than COPR's $nevra"
+              ok=0
+            fi
+            # Weak dependencies off, so Requires must be complete on their own.
+            if ! dnf install -y -q --setopt=install_weak_deps=False "$nevra" </dev/null; then
+              echo "::error::$name: $nevra does not install on Fedora $release"
+              ok=0
+            else
+              # Files outside /opt that a Fedora package of another source also
+              # owns (directories may be shared).
+              files="$(rpm -q --qf '[%{FILEMODES:perms} %{FILENAMES}\n]' "$name" \
+                | sed -n 's|^[^d][^ ]* ||p' | grep -v '^/opt/' | paste -sd, || true)"
+              if [ -n "$files" ]; then
+                owners="$(dnf repoquery -q --repo fedora --repo updates --file "$files" \
+                  --qf '%{name} %{source_name}\n' | awk -v s="$source" '$2 != s {print $1}' | sort -u | paste -sd' ')"
+                if [ -n "$owners" ]; then
+                  echo "::error::$name: installs files that Fedora's $owners also own"
+                  ok=0
+                fi
+              fi
+            fi
+            echo "::endgroup::"
+            if [ "$ok" = 1 ]; then
+              echo "$name: OK ($nevra)"
+            else
+              failed="$failed $name"
+            fi
+          done <<<"$packages"
+          if [ -n "$failed" ]; then
+            echo "::error::Fedora $release: not OK:$failed"
             exit 1
           fi

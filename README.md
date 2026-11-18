@@ -73,7 +73,9 @@ can; only once it's older than `SOURCE_GRACE_HOURS` (copr.conf, default 72)
 does the run fail, so a Source URL that really changed doesn't go unnoticed.
 Another one
 (`test.yml`) checks daily that updating and the latest COPR builds still
-work. GitHub mails you when either fails.
+work, and that every package installs from COPR on each Fedora release in
+`copr.conf` (except rawhide) without conflicting with Fedora's packages.
+GitHub mails you when either fails.
 
 The Action needs your COPR API token as the `COPR_CONFIG` secret. Renew it
 when the token expires (every 180 days):
