@@ -236,8 +236,17 @@ upstream_latest() {
         warn "$1: could not determine the latest release of $upstream."
         return 1
     fi
+    if ! valid_version "$latest"; then
+        warn "$1: the latest release of $upstream is '$latest', which is not a version rpm can use."
+        return 1
+    fi
     printf '%s\n' "$latest"
 }
+
+# valid_version <version>: true if rpm can use <version> as a Version (no
+# "-", starts with a digit), so tags like "nightly" or "1.2.0-beta.1" are
+# never taken for a release
+valid_version() { [[ "$1" =~ ^[0-9][0-9A-Za-z.+~_]*$ ]]; }
 
 # is_newer <have> <latest>: true if <latest> is a higher version than <have>
 is_newer() {
@@ -402,7 +411,7 @@ write_template() {
     tag="$(latest_release "$upstream")" || die "Could not find a release of $upstream."
     version="${tag#v}"
     prefix="${tag%"$version"}"
-    [[ "$version" =~ ^[0-9][0-9A-Za-z.+~_]*$ ]] \
+    valid_version "$version" \
         || die "The latest tag of $upstream ('$tag') is not a version rpm can use."
 
     case "$forge" in
@@ -545,6 +554,7 @@ UPSTREAM="$upstream"
 EOF
 
     latest="$(latest_tag "$upstream")" || die "Could not find the latest release of $upstream."
+    valid_version "$latest" || die "The latest release of $upstream ('$latest') is not a version rpm can use."
     have="$(spec_version "$spec")"
     if is_newer "$have" "$latest"; then
         log "Updating $have -> $latest (latest release of $upstream)"
