@@ -50,13 +50,13 @@ make install DESTDIR=%{buildroot} PREFIX=%{_prefix}
 export RUSTFLAGS="%{build_rustflags}"
 cargo test --release --locked
 desktop-file-validate %{buildroot}%{_datadir}/applications/app.whatsup_desktop.WhatsUp.desktop
-appstream-util validate-relax --nonet %{buildroot}%{_datadir}/metainfo/app.whatsup_desktop.WhatsUp.metainfo.xml
+appstream-util validate-relax --nonet %{buildroot}%{_metainfodir}/app.whatsup_desktop.WhatsUp.metainfo.xml
 
 %files
 %doc README.md
 %{_bindir}/%{name}
 %{_datadir}/applications/app.whatsup_desktop.WhatsUp.desktop
-%{_datadir}/metainfo/app.whatsup_desktop.WhatsUp.metainfo.xml
+%{_metainfodir}/app.whatsup_desktop.WhatsUp.metainfo.xml
 %{_datadir}/icons/hicolor/scalable/apps/app.whatsup_desktop.WhatsUp.svg
 %{_datadir}/icons/hicolor/scalable/apps/app.whatsup_desktop.WhatsUp-tray.svg
 %{_datadir}/icons/hicolor/scalable/apps/app.whatsup_desktop.WhatsUp-tray-unread.svg

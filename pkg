@@ -186,25 +186,20 @@ upstream_from_url() {
     esac
 }
 
-upstream_of() {
+# conf_var <package> <VAR>: VAR from the package's package.conf, empty if unset
+conf_var() {
     (
-        UPSTREAM=""
         # shellcheck source=/dev/null
         [[ -f "$ROOT_DIR/packages/$1/package.conf" ]] && source "$ROOT_DIR/packages/$1/package.conf"
-        printf '%s\n' "$UPSTREAM"
+        printf '%s\n' "${!2:-}"
     )
 }
 
+upstream_of() { conf_var "$1" UPSTREAM; }
+
 # excluded_chroots <package>: EXCLUDE_CHROOTS from its package.conf, the
 # chroots of copr.conf it can't build in (e.g. a Fedora release too old)
-excluded_chroots() {
-    (
-        EXCLUDE_CHROOTS=""
-        # shellcheck source=/dev/null
-        [[ -f "$ROOT_DIR/packages/$1/package.conf" ]] && source "$ROOT_DIR/packages/$1/package.conf"
-        printf '%s\n' "$EXCLUDE_CHROOTS"
-    )
-}
+excluded_chroots() { conf_var "$1" EXCLUDE_CHROOTS; }
 
 cmd_setup() {
     need copr-cli curl
@@ -286,7 +281,7 @@ cmd_list() {
 cmd_update() {
     need rpmspec curl jq rpmdev-bumpspec spectool
     local commit=1 push=1 arg name names="" have latest spec dirty updated=0 rc=0
-    local backup missing released ts age pending=0
+    local original missing released ts age pending=0
     for arg in "$@"; do
         case "$arg" in
             --no-commit) commit=0 push=0 ;;
@@ -309,13 +304,13 @@ cmd_update() {
             if (( commit )); then
                 dirty="$(git -C "$ROOT_DIR" status --porcelain -- "packages/$name")"
             fi
-            backup="$(mktemp)"
-            cp "$spec" "$backup"
+            # Kept in memory (the "x" saves trailing newlines), so a failure
+            # leaves no temporary file behind.
+            original="$(cat "$spec"; echo x)"
             rpmdev-bumpspec -n "$latest" -c "Update to $latest" "$spec"
             missing="$(missing_sources "$spec" | paste -sd ' ')"
             if [[ -n "$missing" ]]; then
-                cp "$backup" "$spec"
-                rm -f "$backup"
+                printf '%s' "${original%x}" >"$spec"
                 age=""
                 if released="$(release_date "$(upstream_of "$name")" "$latest")" \
                     && ts="$(date -d "$released" +%s 2>/dev/null)"; then
@@ -330,7 +325,6 @@ cmd_update() {
                 fi
                 continue
             fi
-            rm -f "$backup"
             if (( commit )) && [[ -z "$dirty" ]]; then
                 git -C "$ROOT_DIR" commit -q -m "$name: update to $latest" -- "packages/$name"
                 updated=$((updated + 1))
