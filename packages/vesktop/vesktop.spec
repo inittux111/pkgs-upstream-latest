@@ -12,8 +12,8 @@
 %global __requires_exclude_from ^/opt/Vesktop/.*$
 
 Name:           vesktop
-Version:        1.6.9
-Release:        2%{?dist}
+Version:        1.7.0
+Release:        1%{?dist}
 Summary:        Custom Discord desktop app with Vencord built in
 
 License:        GPL-3.0-only
@@ -71,6 +71,9 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/vesktop.desktop
 %{_datadir}/icons/hicolor/scalable/apps/vesktop.svg
 
 %changelog
+* Thu Nov 19 2026 Maarten van der Rijst <github@feedmebits.nl> - 1.7.0-1
+- Update to 1.7.0
+
 * Wed Nov 18 2026 Maarten van der Rijst <github@feedmebits.nl> - 1.6.9-2
 - Require alsa-lib, mesa-libgbm and pulseaudio-libs, which Electron needs
 
