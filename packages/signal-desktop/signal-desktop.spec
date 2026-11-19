@@ -13,8 +13,8 @@
 %global __requires_exclude_from ^/opt/Signal/.*$
 
 Name:           signal-desktop
-Version:        8.35.0
-Release:        2%{?dist}
+Version:        8.36.0
+Release:        1%{?dist}
 Summary:        Private messaging from your desktop
 
 License:        AGPL-3.0-only
@@ -88,6 +88,9 @@ touch /opt/Signal/.signal-postinst || :
 %{_datadir}/polkit-1/actions/org.signalapp.signal-desktop.*.policy
 
 %changelog
+* Thu Nov 19 2026 Maarten van der Rijst <github@feedmebits.nl> - 8.36.0-1
+- Update to 8.36.0
+
 * Wed Nov 18 2026 Maarten van der Rijst <github@feedmebits.nl> - 8.35.0-2
 - Install the polkit policies and the update marker, as the .deb does
 - Keep chrome-sandbox 0755 instead of setuid root; drop the AppArmor profile
