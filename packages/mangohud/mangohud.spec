@@ -1,6 +1,7 @@
 %global appname MangoHud
 %global forgeurl https://github.com/flightlessmango/MangoHud
 
+# Versions from upstream's subprojects/*.wrap, set by update-hook.
 %global imgui_ver 1.91.6
 %global vulkan_ver 1.4.346
 %global implot_ver 0.16

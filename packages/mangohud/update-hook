@@ -1,0 +1,34 @@
+#!/bin/bash
+# Run by `pkg update` and `pkg bump` after they set the spec's Version: sets
+# the versions of the bundled subprojects to the ones in the new tag's
+# subprojects/*.wrap.
+# Usage: update-hook <spec> <version>
+set -euo pipefail
+spec="$1" ver="$2"
+raw="https://raw.githubusercontent.com/flightlessmango/MangoHud/v${ver//\~/-}/subprojects"
+
+# wrap <name> <key>: the value of <key> in subprojects/<name>.wrap.
+wrap() {
+    curl -fsS "$raw/$1.wrap" | sed -n -E "s/^$2 *= *//p" | head -n1
+}
+fail() { echo "$*; update the spec by hand." >&2; exit 1; }
+
+imgui="$(wrap imgui directory)";                      imgui="${imgui#imgui-}"
+vulkan="$(wrap vulkan-headers directory)";            vulkan="${vulkan#Vulkan-Headers-}"
+vulkan_util="$(wrap vulkan-utility-libraries directory)"
+implot="$(wrap implot wrapdb_version)"
+implot_wrap="$(wrap implot patch_url | sed -n -E 's|.*wrapdb\.mesonbuild\.com/v([0-9]+)/.*|\1|p')"
+
+[[ "$vulkan_util" == "Vulkan-Utility-Libraries-$vulkan" ]] \
+    || fail "Vulkan-Headers ($vulkan) and Vulkan-Utility-Libraries ($vulkan_util) differ"
+# The spec's Source6 hardcodes wrapdb revision 1 of the implot patch.
+[[ "$implot" == *-1 ]] || fail "implot's wrapdb version is $implot, not revision 1"
+implot="${implot%-1}"
+for v in "$imgui" "$vulkan" "$implot" "$implot_wrap"; do
+    [[ "$v" =~ ^[0-9][0-9.]*$ ]] || fail "Unexpected subproject version '$v'"
+done
+
+sed -i -E -e "s/^(%global imgui_ver ).*/\1$imgui/" \
+          -e "s/^(%global vulkan_ver ).*/\1$vulkan/" \
+          -e "s/^(%global implot_ver ).*/\1$implot/" \
+          -e "s/^(%global implot_wrap_ver ).*/\1$implot_wrap/" "$spec"

@@ -1,0 +1,21 @@
+#!/bin/bash
+# Run by `pkg update` and `pkg bump` after they set the spec's Version:
+# points the spec's submodule commits at the ones the new tag pins.
+# Usage: update-hook <spec> <version>
+set -euo pipefail
+spec="$1" ver="$2"
+
+# submodule <project> <ref> <dir> <name>: the commit that <ref> of the GitLab
+# <project> pins for the submodule <dir>/<name>.
+submodule() {
+    local id
+    id="$(curl -fsS "https://gitlab.com/api/v4/projects/${1//\//%2F}/repository/tree?ref=$2&path=$3&per_page=100" \
+        | jq -r --arg n "$4" '.[] | select(.type == "commit" and .name == $n) | .id')"
+    [[ "$id" =~ ^[0-9a-f]{40}$ ]] || { echo "No submodule $3/$4 in $1 at $2." >&2; return 1; }
+    echo "$id"
+}
+
+magpie="$(submodule mission-center-devs/mission-center "v$ver" subprojects magpie)"
+rummage="$(submodule mission-center-devs/gng "$magpie" platform-linux/crates app-rummage)"
+sed -i -E -e "s/^(%global magpie_commit +)[0-9a-f]+$/\1$magpie/" \
+          -e "s/^(%global app_rummage_commit +)[0-9a-f]+$/\1$rummage/" "$spec"

@@ -158,6 +158,16 @@ release_date() {
 
 # missing_sources <spec>: print the spec's remote sources that can't be
 # downloaded (checked with a HEAD request, else a 1-byte ranged GET)
+# run_update_hook <pkg> <spec> <version>: after Version is bumped, run
+# packages/<pkg>/update-hook if there is one, to update what else the spec
+# pins to a release (e.g. submodule commits).
+run_update_hook() {
+    local hook="$ROOT_DIR/packages/$1/update-hook"
+    [[ -e "$hook" ]] || return 0
+    log "$1: running update-hook for $3"
+    "$hook" "$2" "$3" || { warn "$1: update-hook failed for $3"; return 1; }
+}
+
 missing_sources() {
     local url
     while read -r _ url; do
@@ -308,6 +318,11 @@ cmd_update() {
             # leaves no temporary file behind.
             original="$(cat "$spec"; echo x)"
             rpmdev-bumpspec -n "$latest" -c "Update to $latest" "$spec"
+            if ! run_update_hook "$name" "$spec" "$latest"; then
+                printf '%s' "${original%x}" >"$spec"
+                rc=1
+                continue
+            fi
             missing="$(missing_sources "$spec" | paste -sd ' ')"
             if [[ -n "$missing" ]]; then
                 printf '%s' "${original%x}" >"$spec"
@@ -353,6 +368,7 @@ cmd_bump() {
     spec="$(spec_of "${1:-}")"
     [[ -n "$ver" ]] || die "Usage: ${0##*/} bump <package> <version>"
     rpmdev-bumpspec -n "$ver" -c "Update to $ver" "$spec"
+    run_update_hook "$1" "$spec" "$ver" || die "Fix the spec by hand, or revert it with 'git checkout -- $spec'."
     log "Spec now at $(rpmspec -q --srpm --qf '%{VERSION}-%{RELEASE}\n' "$spec" | head -n1)."
     log "Review with 'git diff', then build with: ${0##*/} build $1"
 }

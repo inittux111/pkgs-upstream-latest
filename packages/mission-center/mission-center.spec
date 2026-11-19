@@ -4,8 +4,8 @@
 # downloads nvtop (COPR_ENABLE_NET=on in copr.conf).
 #
 # Upstream's release tarball leaves out its git submodules, so they are
-# separate sources. On each update, set these to the commits the new tag
-# pins:
+# separate sources, at the commits the tag pins (update-hook sets them on
+# each update):
 #   magpie:      subprojects/magpie in mission-center
 #   app_rummage: platform-linux/crates/app-rummage in magpie (gng)
 %global magpie_commit       a5272b3c1d853caa4044b737cf49257bfc4c86f2

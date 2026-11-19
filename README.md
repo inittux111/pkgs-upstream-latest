@@ -38,6 +38,13 @@ If a package can't build on one of the chroots in `copr.conf` (say, its
 Fedora release is too old), list that chroot in its `package.conf` as
 `EXCLUDE_CHROOTS="fedora-43-x86_64"` and `build` skips it.
 
+`update` and `bump` only change a spec's `Version`. If the spec also pins
+something that changes with each release (submodule commits, bundled
+dependency versions), add an executable `packages/<name>/update-hook`: they
+run it as `update-hook <spec> <version>` after the bump, and it rewrites
+those values from upstream (see mission-center and mangohud). If it fails,
+`update` puts the spec back and reports an error.
+
 ## Other commands
 
 ```bash
