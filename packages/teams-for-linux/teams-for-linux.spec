@@ -12,8 +12,8 @@
 %global __requires_exclude_from ^/opt/teams-for-linux/.*$
 
 Name:           teams-for-linux
-Version:        2.32.0
-Release:        2%{?dist}
+Version:        2.32.1
+Release:        1%{?dist}
 Summary:        Unofficial Microsoft Teams for Linux client
 
 License:        GPL-3.0-or-later
@@ -71,6 +71,9 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/%{name}.desktop
 %{_datadir}/icons/hicolor/*/apps/%{name}.png
 
 %changelog
+* Fri Nov 20 2026 Maarten van der Rijst <github@feedmebits.nl> - 2.32.1-1
+- Update to 2.32.1
+
 * Wed Nov 18 2026 Maarten van der Rijst <github@feedmebits.nl> - 2.32.0-2
 - Require alsa-lib, mesa-libgbm and pulseaudio-libs, which Electron needs
 
