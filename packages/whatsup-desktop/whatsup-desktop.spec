@@ -8,7 +8,7 @@
 # chroots in copr.conf.
 
 Name:           whatsup-desktop
-Version:        1.3.2
+Version:        1.3.3
 Release:        1%{?dist}
 Summary:        WhatsApp Web for GNOME
 
@@ -64,6 +64,9 @@ appstream-util validate-relax --nonet %{buildroot}%{_metainfodir}/app.whatsup_de
 %{_datadir}/icons/hicolor/symbolic/apps/app.whatsup_desktop.WhatsUp-unread-symbolic.svg
 
 %changelog
+* Sat Nov 21 2026 Maarten van der Rijst <github@feedmebits.nl> - 1.3.3-1
+- Update to 1.3.3
+
 * Wed Nov 18 2026 Maarten van der Rijst <github@feedmebits.nl> - 1.3.2-1
 - Update to 1.3.2
 
