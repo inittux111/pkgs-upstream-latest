@@ -2,7 +2,7 @@
 # (privileged helper daemon over D-Bus + systemd unit).
 
 Name:           btrfs-assistant
-Version:        3.0.0
+Version:        3.1.0
 Release:        1%{?dist}
 Summary:        GUI management tool to make managing a Btrfs filesystem easier
 
@@ -80,5 +80,8 @@ appstream-util validate-relax --nonet %{buildroot}%{_metainfodir}/%{name}.metain
 %config(noreplace) %{_sysconfdir}/%{name}.conf
 
 %changelog
+* Thu Nov 26 2026 Maarten van der Rijst <github@feedmebits.nl> - 3.1.0-1
+- Update to 3.1.0
+
 * Fri Oct 16 2026 Maarten van der Rijst <github@feedmebits.nl> - 3.0.0-1
 - Update to 3.0.0 (privileged helper daemon over D-Bus + systemd unit)
