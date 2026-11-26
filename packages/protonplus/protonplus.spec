@@ -3,7 +3,7 @@
 %global app_id com.vysp3r.ProtonPlus
 
 Name:           protonplus
-Version:        0.6.8
+Version:        0.6.9
 Release:        1%{?dist}
 Summary:        A modern compatibility tools manager
 
@@ -61,5 +61,8 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/%{app_id}.desktop
 %{_metainfodir}/%{app_id}.metainfo.xml
 
 %changelog
+* Thu Nov 26 2026 Maarten van der Rijst <github@feedmebits.nl> - 0.6.9-1
+- Update to 0.6.9
+
 * Tue Nov 17 2026 Maarten <github@feedmebits.nl> - 0.6.8-1
 - Initial package
