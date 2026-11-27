@@ -28,6 +28,7 @@ BuildRequires:  pkgconfig(libarchive)
 BuildRequires:  pkgconfig(libnotify)
 BuildRequires:  pkgconfig(libsoup-3.0)
 BuildRequires:  pkgconfig(sdl3) >= 3.2.0
+BuildRequires:  pkgconfig(yaml-0.1)
 
 Requires:       hicolor-icon-theme
 
